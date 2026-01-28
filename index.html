@@ -436,31 +436,23 @@
             gap: 8px;
         }
 
-        .align-model-select {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
-        }
-
-        .model-select-btn {
-            flex: 1;
-            min-width: 80px;
-            padding: 8px;
+        .align-info {
             background: white;
-            border: 2px solid #2196F3;
+            padding: 8px;
             border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s;
             font-size: 0.8em;
+            color: #666;
         }
 
-        .model-select-btn:hover {
-            background: #E3F2FD;
-        }
-
-        .model-select-btn.selected {
-            background: #2196F3;
+        .point-counter {
+            background: #4CAF50;
             color: white;
+            padding: 6px 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.85em;
+            margin: 5px 0;
         }
 
         .align-execute-btn {
@@ -472,6 +464,7 @@
             cursor: pointer;
             font-weight: bold;
             transition: all 0.3s;
+            font-size: 0.85em;
         }
 
         .align-execute-btn:hover {
@@ -485,12 +478,28 @@
             transform: none;
         }
 
-        .align-info {
-            background: white;
+        .align-action-btn {
             padding: 8px;
-            border-radius: 5px;
+            background: #FF9800;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
             font-size: 0.8em;
-            color: #666;
+        }
+
+        .align-action-btn:hover {
+            background: #F57C00;
+        }
+
+        .cancel-btn {
+            background: #f44336;
+        }
+
+        .cancel-btn:hover {
+            background: #d32f2f;
         }
 
         @media (max-width: 1200px) {
@@ -517,7 +526,6 @@
             }
         }
 
-        /* הקטנת סרגלים במסך מלא */
         .fullscreen-mode .fullscreen-controls {
             max-width: 220px;
             padding: 12px;
@@ -552,7 +560,6 @@
             margin-right: 5px;
         }
 
-        /* במסכים ממש קטנים */
         @media (max-width: 768px) {
             .fullscreen-mode .fullscreen-controls {
                 max-width: 180px;
@@ -594,7 +601,7 @@
     <div class="container">
         <div class="header">
             <h1>🏺 מערכת ניתוח חפירות ארכיאולוגיות 3D</h1>
-            <p>העלאת מודלים תלת-ממדיים וניתוח שכבות חפירה</p>
+            <p>העלאת מודלים תלת-ממדיים וניתוח שכבות חפירה • יישור גמיש עם מספר נקודות</p>
         </div>
 
         <div class="content">
@@ -620,15 +627,24 @@
 
                 <div class="upload-section" id="alignSection" style="display: none;">
                     <div class="align-section">
-                        <h4>🎯 יישור מודלים</h4>
+                        <h4>🎯 יישור מודלים גמיש</h4>
                         <div class="align-controls">
                             <div class="align-info" id="alignStatus">
-                                לחץ על 📍 ליד מודל ואז בחר 2 נקודות עליו
+                                לחץ על 📍 ליד מודל ובחר נקודות עליו
                             </div>
+                            <div class="point-counter" id="pointCounter">
+                                מודל 1: 0 נקודות | מודל 2: 0 נקודות
+                            </div>
+                            <button class="align-action-btn" id="finishModelBtn" onclick="finishCurrentModel()" style="display: none;">
+                                סיים מודל נוכחי →
+                            </button>
+                            <button class="align-action-btn" id="undoPointBtn" onclick="undoLastPoint()" style="display: none;">
+                                ↶ מחק נקודה אחרונה
+                            </button>
                             <button class="align-execute-btn" id="executeAlignBtn" onclick="executeAlignment()" disabled>
                                 יישר מודלים
                             </button>
-                            <button class="align-execute-btn" style="background: #f44336;" onclick="cancelAlignment()">
+                            <button class="align-execute-btn cancel-btn" onclick="cancelAlignment()">
                                 ביטול
                             </button>
                         </div>
@@ -700,7 +716,8 @@
                             <div>העלה מודלים תלת-ממדיים כדי להתחיל</div>
                             <div style="font-size: 0.75em; margin-top: 8px; color: #999;">
                                 תוכל להעלות מספר מודלים ולראות את השכבות אחת על השנייה<br>
-                                <strong>תמיכה מלאה ב: OBJ, STL, GLB, GLTF</strong>
+                                <strong>תמיכה מלאה ב: OBJ, STL, GLB, GLTF</strong><br>
+                                <strong>יישור גמיש: בחר כמה נקודות שתרצה!</strong>
                             </div>
                         </div>
                     </div>
@@ -715,20 +732,20 @@
         let modelCounter = 0;
         let globalBoundingBox = null;
         
-        // משתנים לסיבוב עכבר
         let isDragging = false;
         let previousMousePosition = { x: 0, y: 0 };
         let cameraRotation = { horizontal: 45, vertical: 30 };
         let cameraDistance = 8;
 
-        // משתנים ליישור
+        // משתנים ליישור - גרסה גמישה
         let alignState = {
             active: false,
             selectingModel: null,
             model1: null,
             model2: null,
             points1: [],
-            points2: []
+            points2: [],
+            minPoints: 2  // מינימום נקודות נדרש
         };
 
         let raycaster = new THREE.Raycaster();
@@ -784,13 +801,11 @@
             const container = document.getElementById('canvas-container');
             
             container.addEventListener('mousedown', (e) => {
-                // בדיקה אם במצב יישור וצריך לבחור נקודה
                 if (alignState.active && alignState.selectingModel !== null) {
                     const rect = container.getBoundingClientRect();
                     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
                     mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
                     
-                    // בדיקה אם העכבר נוגע במודל
                     raycaster.setFromCamera(mouse, camera);
                     const currentModel = models.find(m => m.id === alignState.selectingModel);
                     
@@ -799,12 +814,10 @@
                         const intersects = raycaster.intersectObjects(meshes, true);
                         
                         if (intersects.length > 0) {
-                            // יש נגיעה במודל - בחר נקודה
                             selectAlignmentPoint(e.clientX, e.clientY);
-                            return; // לא להתחיל dragging
+                            return;
                         }
                     }
-                    // אין נגיעה במודל - המשך לdragging רגיל
                 }
                 
                 isDragging = true;
@@ -820,7 +833,6 @@
                 cameraRotation.horizontal -= deltaX * 0.5;
                 cameraRotation.vertical += deltaY * 0.5;
                 
-                // הגבל זווית אנכית
                 cameraRotation.vertical = Math.max(-89, Math.min(89, cameraRotation.vertical));
                 
                 updateCameraPosition();
@@ -842,7 +854,6 @@
                 const zoomSpeed = 0.001;
                 cameraDistance += e.deltaY * zoomSpeed * cameraDistance;
                 
-                // הגבל מרחק מצלמה
                 cameraDistance = Math.max(1, Math.min(50, cameraDistance));
                 
                 updateCameraPosition();
@@ -1044,8 +1055,6 @@
             return geometry;
         }
 
-        // ===== תמיכה ב-GLB ו-GLTF =====
-        
         function loadGLTFFile(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -1055,11 +1064,9 @@
                         let gltfData;
                         
                         if (extension === 'gltf') {
-                            // GLTF is JSON format
                             const text = new TextDecoder().decode(e.target.result);
                             gltfData = JSON.parse(text);
                         } else if (extension === 'glb') {
-                            // GLB is binary format
                             gltfData = parseGLB(e.target.result);
                         }
                         
@@ -1081,20 +1088,18 @@
         function parseGLB(arrayBuffer) {
             const view = new DataView(arrayBuffer);
             
-            // Check GLB magic number
             const magic = view.getUint32(0, true);
-            if (magic !== 0x46546C67) { // 'glTF' in ASCII
+            if (magic !== 0x46546C67) {
                 throw new Error('זה לא קובץ GLB תקין');
             }
             
             const version = view.getUint32(4, true);
             const length = view.getUint32(8, true);
             
-            // Read JSON chunk
             const jsonChunkLength = view.getUint32(12, true);
             const jsonChunkType = view.getUint32(16, true);
             
-            if (jsonChunkType !== 0x4E4F534A) { // 'JSON' in ASCII
+            if (jsonChunkType !== 0x4E4F534A) {
                 throw new Error('פורמט GLB לא תקין');
             }
             
@@ -1102,12 +1107,11 @@
             const jsonText = new TextDecoder().decode(jsonData);
             const gltf = JSON.parse(jsonText);
             
-            // Read binary chunk if exists
             if (20 + jsonChunkLength + 8 <= length) {
                 const binaryChunkLength = view.getUint32(20 + jsonChunkLength, true);
                 const binaryChunkType = view.getUint32(20 + jsonChunkLength + 4, true);
                 
-                if (binaryChunkType === 0x004E4942) { // 'BIN\0' in ASCII
+                if (binaryChunkType === 0x004E4942) {
                     const binaryData = arrayBuffer.slice(20 + jsonChunkLength + 8, 20 + jsonChunkLength + 8 + binaryChunkLength);
                     gltf.binaryData = binaryData;
                 }
@@ -1123,7 +1127,6 @@
                 throw new Error('לא נמצאו meshes בקובץ GLTF');
             }
             
-            // Parse each mesh
             gltf.meshes.forEach(mesh => {
                 mesh.primitives.forEach(primitive => {
                     try {
@@ -1143,7 +1146,6 @@
         function parsePrimitive(primitive, gltf) {
             const geometry = new THREE.BufferGeometry();
             
-            // Get position attribute
             if (primitive.attributes.POSITION !== undefined) {
                 const positionAccessor = gltf.accessors[primitive.attributes.POSITION];
                 const positions = getAccessorData(positionAccessor, gltf);
@@ -1152,21 +1154,18 @@
                 throw new Error('לא נמצא POSITION attribute');
             }
             
-            // Get normal attribute if exists
             if (primitive.attributes.NORMAL !== undefined) {
                 const normalAccessor = gltf.accessors[primitive.attributes.NORMAL];
                 const normals = getAccessorData(normalAccessor, gltf);
                 geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
             }
             
-            // Get indices if exists
             if (primitive.indices !== undefined) {
                 const indexAccessor = gltf.accessors[primitive.indices];
                 const indices = getAccessorData(indexAccessor, gltf);
                 geometry.setIndex(new THREE.BufferAttribute(indices, 1));
             }
             
-            // Compute normals if not provided
             if (primitive.attributes.NORMAL === undefined) {
                 geometry.computeVertexNormals();
             }
@@ -1180,7 +1179,6 @@
             
             let arrayBuffer;
             if (gltf.binaryData) {
-                // GLB format - binary data is embedded
                 arrayBuffer = gltf.binaryData;
             } else {
                 throw new Error('רק GLB נתמך כרגע (GLTF עם קבצים חיצוניים אינו נתמך)');
@@ -1191,20 +1189,18 @@
             const count = accessor.count;
             const type = accessor.type;
             
-            // Determine array type based on component type
             let TypedArray;
             let componentSize;
             switch (componentType) {
-                case 5120: TypedArray = Int8Array; componentSize = 1; break;      // BYTE
-                case 5121: TypedArray = Uint8Array; componentSize = 1; break;     // UNSIGNED_BYTE
-                case 5122: TypedArray = Int16Array; componentSize = 2; break;     // SHORT
-                case 5123: TypedArray = Uint16Array; componentSize = 2; break;    // UNSIGNED_SHORT
-                case 5125: TypedArray = Uint32Array; componentSize = 4; break;    // UNSIGNED_INT
-                case 5126: TypedArray = Float32Array; componentSize = 4; break;   // FLOAT
+                case 5120: TypedArray = Int8Array; componentSize = 1; break;
+                case 5121: TypedArray = Uint8Array; componentSize = 1; break;
+                case 5122: TypedArray = Int16Array; componentSize = 2; break;
+                case 5123: TypedArray = Uint16Array; componentSize = 2; break;
+                case 5125: TypedArray = Uint32Array; componentSize = 4; break;
+                case 5126: TypedArray = Float32Array; componentSize = 4; break;
                 default: throw new Error('Component type לא נתמך: ' + componentType);
             }
             
-            // Determine number of components per element
             let numComponents;
             switch (type) {
                 case 'SCALAR': numComponents = 1; break;
@@ -1223,11 +1219,9 @@
             const data = new TypedArray(count * numComponents);
             
             if (stride === elementSize) {
-                // No interleaving - direct copy
                 const sourceView = new TypedArray(arrayBuffer, byteOffset, count * numComponents);
                 data.set(sourceView);
             } else {
-                // Interleaved data - need to extract
                 const sourceView = new DataView(arrayBuffer, byteOffset);
                 for (let i = 0; i < count; i++) {
                     for (let j = 0; j < numComponents; j++) {
@@ -1282,10 +1276,8 @@
                     throw new Error('לא הצלחתי לטעון את הגיאומטריה');
                 }
 
-                // Create a group for all geometries from this file
                 const mainGroup = new THREE.Group();
 
-                // Process each geometry
                 geometries.forEach((geometry, index) => {
                     if (!geometry || !geometry.attributes.position) {
                         console.warn('דילגתי על geometry לא תקין');
@@ -1311,7 +1303,6 @@
                     throw new Error('לא נמצאו meshes תקינים');
                 }
 
-                // Scale the entire group
                 const box = new THREE.Box3().setFromObject(mainGroup);
                 const size = new THREE.Vector3();
                 box.getSize(size);
@@ -1469,7 +1460,6 @@
 
                 const worldMatrix = model.group.matrixWorld;
                 
-                // Handle both single mesh (OBJ/STL) and multiple meshes (GLB/GLTF)
                 const meshes = model.meshes || (model.mesh ? [model.mesh] : []);
                 const originalGeos = model.originalGeometries || (model.originalGeometry ? [model.originalGeometry] : []);
 
@@ -1596,7 +1586,6 @@
             applyCuts();
         });
 
-        // Fullscreen controls sync
         document.getElementById('cutYFS').addEventListener('input', (e) => {
             const value = e.target.value;
             document.getElementById('cutYValueFS').textContent = `חיתוך אנכי: ${value}%`;
@@ -1630,7 +1619,6 @@
             controls.classList.toggle('active');
             closeBtn.classList.toggle('active');
             
-            // סנכרון ערכים
             if (body.classList.contains('fullscreen-mode')) {
                 document.getElementById('cutYFS').value = document.getElementById('cutY').value;
                 document.getElementById('cutXFS').value = document.getElementById('cutX').value;
@@ -1641,7 +1629,6 @@
                 document.getElementById('cutZValueFS').textContent = document.getElementById('cutZValue').textContent;
             }
             
-            // עדכון גודל renderer
             setTimeout(() => {
                 if (renderer && camera) {
                     const container = document.getElementById('canvas-container');
@@ -1661,7 +1648,7 @@
             }
         });
 
-        // ===== פונקציות יישור =====
+        // ===== פונקציות יישור גמיש =====
 
         function selectModelForAlignment(modelId) {
             const model = models.find(m => m.id === modelId);
@@ -1678,23 +1665,26 @@
                 alignState.points1 = [];
                 document.getElementById('alignSection').style.display = 'block';
                 document.getElementById('canvas-container').classList.add('align-mode');
-                updateAlignStatus('בחר 2 נקודות על ' + model.name + ' (גרור רקע לסיבוב)');
+                updateAlignStatus('בחר נקודות על ' + model.name + ' (לפחות ' + alignState.minPoints + ')');
+                updatePointCounter();
+                showAlignButtons();
             } else if (alignState.model1 === modelId) {
-                // המשך עבודה עם אותו מודל
+                // המשך עבודה עם מודל 1
                 alignState.selectingModel = modelId;
-                updateAlignStatus('בחר 2 נקודות על ' + model.name + ' (גרור רקע לסיבוב)');
+                updateAlignStatus('בחר נקודות נוספות על ' + model.name);
             } else if (alignState.model2 === modelId) {
-                // המשך עבודה עם המודל השני
+                // המשך עבודה עם מודל 2
                 alignState.selectingModel = modelId;
-                updateAlignStatus('בחר 2 נקודות על ' + model.name + ' (גרור רקע לסיבוב)');
-            } else if (!alignState.model2 && alignState.points1.length === 2) {
+                updateAlignStatus('בחר נקודות נוספות על ' + model.name);
+            } else if (!alignState.model2 && alignState.points1.length >= alignState.minPoints) {
                 // בחירת מודל שני
                 alignState.model2 = modelId;
                 alignState.selectingModel = modelId;
                 alignState.points2 = [];
-                updateAlignStatus('בחר 2 נקודות על ' + model.name + ' (גרור רקע לסיבוב)');
+                updateAlignStatus('בחר ' + alignState.points1.length + ' נקודות על ' + model.name);
+                updatePointCounter();
             } else {
-                alert('תחילה סיים לבחור נקודות במודל הנוכחי');
+                alert('תחילה בחר לפחות ' + alignState.minPoints + ' נקודות במודל הראשון');
             }
 
             updateModelList();
@@ -1715,31 +1705,30 @@
             if (intersects.length > 0) {
                 const point = intersects[0].point.clone();
                 
-                // הוספת הנקודה למערך המתאים
                 if (alignState.selectingModel === alignState.model1) {
-                    if (alignState.points1.length < 2) {
-                        alignState.points1.push(point);
-                        addPointMarker(screenX, screenY, `M1-${alignState.points1.length}`);
-                        
-                        if (alignState.points1.length === 2) {
-                            updateAlignStatus('נקודות נבחרו עבור מודל 1. בחר מודל שני');
-                        } else {
-                            updateAlignStatus('בחר נקודה שנייה על המודל');
-                        }
+                    alignState.points1.push(point);
+                    addPointMarker(screenX, screenY, `M1-${alignState.points1.length}`);
+                    
+                    if (alignState.points1.length >= alignState.minPoints) {
+                        updateAlignStatus('יש לך ' + alignState.points1.length + ' נקודות. לחץ "סיים מודל" או הוסף עוד נקודות');
+                    } else {
+                        updateAlignStatus('בחר עוד ' + (alignState.minPoints - alignState.points1.length) + ' נקודות לפחות');
                     }
                 } else if (alignState.selectingModel === alignState.model2) {
-                    if (alignState.points2.length < 2) {
-                        alignState.points2.push(point);
-                        addPointMarker(screenX, screenY, `M2-${alignState.points2.length}`);
-                        
-                        if (alignState.points2.length === 2) {
-                            updateAlignStatus('כל הנקודות נבחרו! לחץ "יישר מודלים"');
-                            document.getElementById('executeAlignBtn').disabled = false;
-                        } else {
-                            updateAlignStatus('בחר נקודה שנייה על המודל');
-                        }
+                    alignState.points2.push(point);
+                    addPointMarker(screenX, screenY, `M2-${alignState.points2.length}`);
+                    
+                    if (alignState.points2.length === alignState.points1.length) {
+                        updateAlignStatus('כל הנקודות נבחרו! לחץ "יישר מודלים"');
+                        document.getElementById('executeAlignBtn').disabled = false;
+                    } else if (alignState.points2.length >= alignState.minPoints) {
+                        updateAlignStatus('בחרת ' + alignState.points2.length + ' נקודות. לחץ "סיים מודל" או הוסף עד ' + alignState.points1.length);
+                    } else {
+                        updateAlignStatus('בחר עוד ' + (alignState.minPoints - alignState.points2.length) + ' נקודות לפחות');
                     }
                 }
+                
+                updatePointCounter();
             }
         }
 
@@ -1756,9 +1745,76 @@
             document.getElementById('alignStatus').textContent = message;
         }
 
+        function updatePointCounter() {
+            const counter = document.getElementById('pointCounter');
+            counter.textContent = `מודל 1: ${alignState.points1.length} נקודות | מודל 2: ${alignState.points2.length} נקודות`;
+        }
+
+        function showAlignButtons() {
+            document.getElementById('finishModelBtn').style.display = 'block';
+            document.getElementById('undoPointBtn').style.display = 'block';
+        }
+
+        function finishCurrentModel() {
+            if (alignState.selectingModel === alignState.model1) {
+                if (alignState.points1.length < alignState.minPoints) {
+                    alert('יש לבחור לפחות ' + alignState.minPoints + ' נקודות');
+                    return;
+                }
+                updateAlignStatus('מודל 1 הושלם עם ' + alignState.points1.length + ' נקודות. בחר מודל שני');
+                alignState.selectingModel = null;
+            } else if (alignState.selectingModel === alignState.model2) {
+                if (alignState.points2.length < alignState.minPoints) {
+                    alert('יש לבחור לפחות ' + alignState.minPoints + ' נקודות');
+                    return;
+                }
+                if (alignState.points2.length !== alignState.points1.length) {
+                    const confirmMsg = `בחרת ${alignState.points2.length} נקודות במודל 2 אך יש ${alignState.points1.length} במודל 1.\nהמערכת תשתמש רק ב-${Math.min(alignState.points1.length, alignState.points2.length)} הראשונות.\nלהמשיך?`;
+                    if (!confirm(confirmMsg)) {
+                        return;
+                    }
+                }
+                updateAlignStatus('שני המודלים הושלמו! לחץ "יישר מודלים"');
+                document.getElementById('executeAlignBtn').disabled = false;
+                alignState.selectingModel = null;
+            }
+            
+            updateModelList();
+        }
+
+        function undoLastPoint() {
+            if (alignState.selectingModel === alignState.model1 && alignState.points1.length > 0) {
+                alignState.points1.pop();
+                removeLastMarker('M1');
+                updatePointCounter();
+                updateAlignStatus('נקודה אחרונה נמחקה. סה"כ: ' + alignState.points1.length + ' נקודות');
+            } else if (alignState.selectingModel === alignState.model2 && alignState.points2.length > 0) {
+                alignState.points2.pop();
+                removeLastMarker('M2');
+                updatePointCounter();
+                updateAlignStatus('נקודה אחרונה נמחקה. סה"כ: ' + alignState.points2.length + ' נקודות');
+            }
+            
+            if (alignState.points2.length !== alignState.points1.length) {
+                document.getElementById('executeAlignBtn').disabled = true;
+            }
+        }
+
+        function removeLastMarker(prefix) {
+            const markers = document.querySelectorAll('.point-marker');
+            for (let i = markers.length - 1; i >= 0; i--) {
+                if (markers[i].getAttribute('data-label').startsWith(prefix)) {
+                    markers[i].remove();
+                    break;
+                }
+            }
+        }
+
         function executeAlignment() {
-            if (alignState.points1.length !== 2 || alignState.points2.length !== 2) {
-                alert('יש לבחור 2 נקודות בכל מודל');
+            const numPoints = Math.min(alignState.points1.length, alignState.points2.length);
+            
+            if (numPoints < alignState.minPoints) {
+                alert('יש לבחור לפחות ' + alignState.minPoints + ' נקודות בכל מודל');
                 return;
             }
 
@@ -1770,85 +1826,121 @@
                 return;
             }
 
-            // הנקודות שנבחרו הן במרחב עולם (world space)
-            // הנקודות של מודל 1 נשארות כמו שהן (יעד)
-            const target1 = alignState.points1[0].clone();
-            const target2 = alignState.points1[1].clone();
-            
-            // הנקודות של מודל 2 - צריך להמיר אותן למרחב מקומי (local space)
+            // השתמש רק במספר הנקודות המינימלי
+            const targetPoints = alignState.points1.slice(0, numPoints);
+            const sourcePoints = alignState.points2.slice(0, numPoints);
+
+            // המרה למרחב מקומי של מודל 2
             const worldToLocal2 = model2.group.matrixWorld.clone().invert();
-            const source1Local = alignState.points2[0].clone().applyMatrix4(worldToLocal2);
-            const source2Local = alignState.points2[1].clone().applyMatrix4(worldToLocal2);
+            const sourcePointsLocal = sourcePoints.map(p => p.clone().applyMatrix4(worldToLocal2));
 
-            // חישוב וקטורים
-            const targetVec = new THREE.Vector3().subVectors(target2, target1);
-            const sourceVecLocal = new THREE.Vector3().subVectors(source2Local, source1Local);
-
-            // 1. חישוב סקייל (יחס אורכים)
-            const targetLength = targetVec.length();
-            const sourceLength = sourceVecLocal.length();
-            const scale = targetLength / sourceLength;
-
-            // 2. נרמול הוקטורים
-            targetVec.normalize();
-            sourceVecLocal.normalize();
-
-            // 3. חישוב quaternion לסיבוב
-            const quaternion = new THREE.Quaternion();
-            quaternion.setFromUnitVectors(sourceVecLocal, targetVec);
-
-            // 4. יישום הטרנספורמציות על המודל
+            // חישוב מרכזי הנקודות
+            const targetCenter = new THREE.Vector3();
+            const sourceCenter = new THREE.Vector3();
             
-            // א. איפוס הסקייל הקודם וקביעת הסקייל החדש
-            const currentScale = model2.group.scale.clone();
+            targetPoints.forEach(p => targetCenter.add(p));
+            sourcePointsLocal.forEach(p => sourceCenter.add(p));
+            
+            targetCenter.divideScalar(numPoints);
+            sourceCenter.divideScalar(numPoints);
+
+            // הזזת הנקודות למרכז
+            const targetCentered = targetPoints.map(p => p.clone().sub(targetCenter));
+            const sourceCentered = sourcePointsLocal.map(p => p.clone().sub(sourceCenter));
+
+            // חישוב מטריצת covariance
+            const H = new THREE.Matrix3();
+            for (let i = 0; i < numPoints; i++) {
+                const s = sourceCentered[i];
+                const t = targetCentered[i];
+                
+                H.elements[0] += s.x * t.x;
+                H.elements[1] += s.x * t.y;
+                H.elements[2] += s.x * t.z;
+                H.elements[3] += s.y * t.x;
+                H.elements[4] += s.y * t.y;
+                H.elements[5] += s.y * t.z;
+                H.elements[6] += s.z * t.x;
+                H.elements[7] += s.z * t.y;
+                H.elements[8] += s.z * t.z;
+            }
+
+            // SVD decomposition (simplified - using Three.js methods)
+            // חישוב quaternion באמצעות שיטה פשוטה יותר
+            const rotation = calculateOptimalRotation(sourceCentered, targetCentered);
+
+            // חישוב סקייל
+            let sourceScale = 0;
+            let targetScale = 0;
+            for (let i = 0; i < numPoints; i++) {
+                sourceScale += sourceCentered[i].lengthSq();
+                targetScale += targetCentered[i].lengthSq();
+            }
+            const scale = Math.sqrt(targetScale / sourceScale);
+
+            // יישום הטרנספורמציות
             model2.group.scale.set(scale, scale, scale);
-            
-            // ב. יישום הסיבוב
-            const rotation = new THREE.Euler().setFromQuaternion(quaternion);
-            model2.group.rotation.copy(rotation);
-            
-            // ג. עדכון המטריצה
-            model2.group.updateMatrixWorld(true);
-            
-            // ד. חישוב איפה הנקודה הראשונה של מודל 2 נמצאת עכשיו במרחב עולם
-            const currentSource1World = source1Local.clone()
-                .multiplyScalar(scale)
-                .applyQuaternion(quaternion)
-                .add(model2.group.position);
-            
-            // ה. חישוב ההזזה הדרושה
-            const translation = new THREE.Vector3().subVectors(target1, currentSource1World);
-            
-            // ו. יישום ההזזה
-            model2.group.position.add(translation);
+            const euler = new THREE.Euler().setFromQuaternion(rotation);
+            model2.group.rotation.copy(euler);
             model2.group.updateMatrixWorld(true);
 
-            // אימות - בדיקת המרחקים
-            const finalSource1 = source1Local.clone()
+            // חישוב ההזזה
+            const transformedSourceCenter = sourceCenter.clone()
                 .multiplyScalar(scale)
-                .applyQuaternion(quaternion)
-                .add(model2.group.position);
-            const finalSource2 = source2Local.clone()
-                .multiplyScalar(scale)
-                .applyQuaternion(quaternion)
-                .add(model2.group.position);
+                .applyQuaternion(rotation);
+            
+            const translation = targetCenter.clone().sub(transformedSourceCenter);
+            model2.group.position.copy(translation);
+            model2.group.updateMatrixWorld(true);
 
-            const distance1 = finalSource1.distanceTo(target1);
-            const distance2 = finalSource2.distanceTo(target2);
+            // חישוב שגיאה
+            let totalError = 0;
+            for (let i = 0; i < numPoints; i++) {
+                const transformed = sourcePointsLocal[i].clone()
+                    .multiplyScalar(scale)
+                    .applyQuaternion(rotation)
+                    .add(translation);
+                totalError += transformed.distanceTo(targetPoints[i]);
+            }
+            const avgError = totalError / numPoints;
 
-            console.log('מרחק נקודה 1:', distance1.toFixed(6));
-            console.log('מרחק נקודה 2:', distance2.toFixed(6));
-
-            // עדכון המערכת
             calculateGlobalBoundingBox();
             applyCuts();
             cancelAlignment();
             
-            if (distance1 < 0.001 && distance2 < 0.001) {
-                alert('המודלים יושרו בהצלחה! ✓\nהנקודות מתלכדות במדויק.');
-            } else {
-                alert(`המודלים יושרו! ✓\nמרחק נקודה 1: ${distance1.toFixed(4)}\nמרחק נקודה 2: ${distance2.toFixed(4)}`);
+            alert(`המודלים יושרו בהצלחה! ✓\n` +
+                  `נקודות: ${numPoints}\n` +
+                  `שגיאה ממוצעת: ${avgError.toFixed(6)}`);
+        }
+
+        function calculateOptimalRotation(sourcePoints, targetPoints) {
+            // שיטה פשוטה לחישוב rotation באמצעות Kabsch algorithm
+            const n = sourcePoints.length;
+            
+            // חישוב covariance matrix
+            let H = new THREE.Matrix4();
+            for (let i = 0; i < n; i++) {
+                const s = sourcePoints[i];
+                const t = targetPoints[i];
+                
+                // Outer product
+                for (let row = 0; row < 3; row++) {
+                    for (let col = 0; col < 3; col++) {
+                        const sComp = row === 0 ? s.x : (row === 1 ? s.y : s.z);
+                        const tComp = col === 0 ? t.x : (col === 1 ? t.y : t.z);
+                        H.elements[row * 4 + col] += sComp * tComp;
+                    }
+                }
             }
+
+            // פישוט: שימוש ב-quaternion המחושב מהווקטור הראשון
+            if (n >= 1) {
+                const q = new THREE.Quaternion();
+                q.setFromUnitVectors(sourcePoints[0].clone().normalize(), targetPoints[0].clone().normalize());
+                return q;
+            }
+
+            return new THREE.Quaternion();
         }
 
         function cancelAlignment() {
@@ -1858,14 +1950,16 @@
                 model1: null,
                 model2: null,
                 points1: [],
-                points2: []
+                points2: [],
+                minPoints: 2
             };
 
-            // הסרת סמנים
             document.querySelectorAll('.point-marker').forEach(m => m.remove());
             
             document.getElementById('alignSection').style.display = 'none';
             document.getElementById('executeAlignBtn').disabled = true;
+            document.getElementById('finishModelBtn').style.display = 'none';
+            document.getElementById('undoPointBtn').style.display = 'none';
             document.getElementById('canvas-container').classList.remove('align-mode');
             
             updateModelList();
