@@ -353,6 +353,229 @@
             font-size: 0.7em;
             margin-left: 5px;
         }
+
+        .align-btn {
+            cursor: pointer;
+            padding: 4px 8px;
+            background: #2196F3;
+            color: white;
+            border-radius: 5px;
+            font-size: 0.8em;
+            transition: all 0.3s;
+        }
+
+        .align-btn:hover {
+            background: #1976D2;
+        }
+
+        .align-btn.active {
+            background: #FF9800;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .point-marker {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #FF4444;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 100;
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.8);
+        }
+
+        .point-marker::after {
+            content: attr(data-label);
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            white-space: nowrap;
+        }
+
+        .align-section {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+
+        .align-section h4 {
+            color: #1976D2;
+            margin-bottom: 10px;
+            font-size: 0.95em;
+        }
+
+        .align-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .align-model-select {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .model-select-btn {
+            flex: 1;
+            min-width: 80px;
+            padding: 8px;
+            background: white;
+            border: 2px solid #2196F3;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.8em;
+        }
+
+        .model-select-btn:hover {
+            background: #E3F2FD;
+        }
+
+        .model-select-btn.selected {
+            background: #2196F3;
+            color: white;
+        }
+
+        .align-execute-btn {
+            padding: 10px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .align-execute-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+
+        .align-execute-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .align-info {
+            background: white;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        @media (max-width: 1200px) {
+            .fullscreen-mode .fullscreen-controls {
+                max-width: 250px;
+                padding: 15px;
+            }
+
+            .fullscreen-mode .control-group {
+                margin-bottom: 10px;
+            }
+
+            .fullscreen-mode .control-group label {
+                font-size: 0.8em;
+            }
+
+            .fullscreen-mode .slider {
+                height: 5px;
+            }
+
+            .fullscreen-mode .value-display {
+                font-size: 0.75em;
+                padding: 3px 8px;
+            }
+        }
+
+        /* הקטנת סרגלים במסך מלא */
+        .fullscreen-mode .fullscreen-controls {
+            max-width: 220px;
+            padding: 12px;
+        }
+
+        .fullscreen-mode .control-group {
+            margin-bottom: 8px;
+        }
+
+        .fullscreen-mode .control-group label {
+            font-size: 0.75em;
+            margin-bottom: 3px;
+        }
+
+        .fullscreen-mode .slider {
+            height: 4px;
+        }
+
+        .fullscreen-mode .slider::-webkit-slider-thumb {
+            width: 14px;
+            height: 14px;
+        }
+
+        .fullscreen-mode .slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+        }
+
+        .fullscreen-mode .value-display {
+            font-size: 0.7em;
+            padding: 2px 6px;
+            margin-right: 5px;
+        }
+
+        /* במסכים ממש קטנים */
+        @media (max-width: 768px) {
+            .fullscreen-mode .fullscreen-controls {
+                max-width: 180px;
+                padding: 10px;
+                top: 10px;
+                right: 10px;
+            }
+
+            .fullscreen-mode .control-group {
+                margin-bottom: 6px;
+            }
+
+            .fullscreen-mode .control-group label {
+                font-size: 0.7em;
+            }
+
+            .fullscreen-mode .slider {
+                height: 3px;
+            }
+
+            .fullscreen-mode .slider::-webkit-slider-thumb {
+                width: 12px;
+                height: 12px;
+            }
+
+            .fullscreen-mode .slider::-moz-range-thumb {
+                width: 12px;
+                height: 12px;
+            }
+
+            .fullscreen-mode .value-display {
+                font-size: 0.65em;
+                padding: 2px 5px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -381,6 +604,23 @@
                 <div class="upload-section">
                     <h3>📋 מודלים שהועלו</h3>
                     <div id="modelList" class="model-list"></div>
+                </div>
+
+                <div class="upload-section" id="alignSection" style="display: none;">
+                    <div class="align-section">
+                        <h4>🎯 יישור מודלים</h4>
+                        <div class="align-controls">
+                            <div class="align-info" id="alignStatus">
+                                לחץ על 📍 ליד מודל ואז בחר 2 נקודות עליו
+                            </div>
+                            <button class="align-execute-btn" id="executeAlignBtn" onclick="executeAlignment()" disabled>
+                                יישר מודלים
+                            </button>
+                            <button class="align-execute-btn" style="background: #f44336;" onclick="cancelAlignment()">
+                                ביטול
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -469,6 +709,19 @@
         let cameraRotation = { horizontal: 45, vertical: 30 };
         let cameraDistance = 8;
 
+        // משתנים ליישור
+        let alignState = {
+            active: false,
+            selectingModel: null,
+            model1: null,
+            model2: null,
+            points1: [],
+            points2: []
+        };
+
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+
         function initThreeJS() {
             const container = document.getElementById('canvas-container');
             const instruction = container.querySelector('.instruction');
@@ -499,6 +752,8 @@
             floor.position.y = -2;
             scene.add(floor);
 
+            raycaster = new THREE.Raycaster();
+            
             setupMouseControls();
             animate();
         }
@@ -517,6 +772,16 @@
             const container = document.getElementById('canvas-container');
             
             container.addEventListener('mousedown', (e) => {
+                if (alignState.active && alignState.selectingModel !== null) {
+                    // מצב בחירת נקודות ליישור
+                    const rect = container.getBoundingClientRect();
+                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                    
+                    selectAlignmentPoint(e.clientX, e.clientY);
+                    return;
+                }
+                
                 isDragging = true;
                 previousMousePosition = { x: e.clientX, y: e.clientY };
             });
@@ -1097,6 +1362,7 @@
                             <span class="visibility-toggle" onclick="rotateModelY(${model.id})">🔄Y</span>
                             <span class="visibility-toggle" onclick="rotateModelZ(${model.id})">⭕Z</span>
                             <span class="visibility-toggle" onclick="flipModel(${model.id})">↕️X</span>
+                            <span class="align-btn ${alignState.selectingModel === model.id ? 'active' : ''}" onclick="selectModelForAlignment(${model.id})">📍</span>
                             <span class="delete-btn" onclick="deleteModel(${model.id})">🗑️</span>
                         </div>
                     </div>
@@ -1369,6 +1635,166 @@
                 renderer.setSize(container.clientWidth, container.clientHeight);
             }
         });
+
+        // ===== פונקציות יישור =====
+
+        function selectModelForAlignment(modelId) {
+            const model = models.find(m => m.id === modelId);
+            if (!model || !model.visible) {
+                alert('המודל חייב להיות גלוי כדי לבחור בו ליישור');
+                return;
+            }
+
+            if (!alignState.active) {
+                // התחלת מצב יישור
+                alignState.active = true;
+                alignState.selectingModel = modelId;
+                alignState.model1 = modelId;
+                alignState.points1 = [];
+                document.getElementById('alignSection').style.display = 'block';
+                updateAlignStatus('בחר 2 נקודות על ' + model.name);
+            } else if (alignState.model1 === modelId) {
+                // המשך עבודה עם אותו מודל
+                updateAlignStatus('בחר 2 נקודות על ' + model.name);
+            } else if (alignState.model2 === modelId) {
+                // המשך עבודה עם המודל השני
+                updateAlignStatus('בחר 2 נקודות על ' + model.name);
+            } else if (!alignState.model2 && alignState.points1.length === 2) {
+                // בחירת מודל שני
+                alignState.model2 = modelId;
+                alignState.selectingModel = modelId;
+                alignState.points2 = [];
+                updateAlignStatus('בחר 2 נקודות על ' + model.name);
+            } else {
+                alert('תחילה סיים לבחור נקודות במודל הנוכחי');
+            }
+
+            updateModelList();
+        }
+
+        function selectAlignmentPoint(screenX, screenY) {
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            
+            raycaster.setFromCamera(mouse, camera);
+            
+            const currentModel = models.find(m => m.id === alignState.selectingModel);
+            if (!currentModel) return;
+
+            const meshes = currentModel.meshes || (currentModel.mesh ? [currentModel.mesh] : []);
+            const intersects = raycaster.intersectObjects(meshes, true);
+
+            if (intersects.length > 0) {
+                const point = intersects[0].point.clone();
+                
+                // הוספת הנקודה למערך המתאים
+                if (alignState.selectingModel === alignState.model1) {
+                    if (alignState.points1.length < 2) {
+                        alignState.points1.push(point);
+                        addPointMarker(screenX, screenY, `M1-${alignState.points1.length}`);
+                        
+                        if (alignState.points1.length === 2) {
+                            updateAlignStatus('נקודות נבחרו עבור מודל 1. בחר מודל שני');
+                        } else {
+                            updateAlignStatus('בחר נקודה שנייה על המודל');
+                        }
+                    }
+                } else if (alignState.selectingModel === alignState.model2) {
+                    if (alignState.points2.length < 2) {
+                        alignState.points2.push(point);
+                        addPointMarker(screenX, screenY, `M2-${alignState.points2.length}`);
+                        
+                        if (alignState.points2.length === 2) {
+                            updateAlignStatus('כל הנקודות נבחרו! לחץ "יישר מודלים"');
+                            document.getElementById('executeAlignBtn').disabled = false;
+                        } else {
+                            updateAlignStatus('בחר נקודה שנייה על המודל');
+                        }
+                    }
+                }
+            }
+        }
+
+        function addPointMarker(x, y, label) {
+            const marker = document.createElement('div');
+            marker.className = 'point-marker';
+            marker.style.left = x + 'px';
+            marker.style.top = y + 'px';
+            marker.setAttribute('data-label', label);
+            document.getElementById('canvas-container').appendChild(marker);
+        }
+
+        function updateAlignStatus(message) {
+            document.getElementById('alignStatus').textContent = message;
+        }
+
+        function executeAlignment() {
+            if (alignState.points1.length !== 2 || alignState.points2.length !== 2) {
+                alert('יש לבחור 2 נקודות בכל מודל');
+                return;
+            }
+
+            const model1 = models.find(m => m.id === alignState.model1);
+            const model2 = models.find(m => m.id === alignState.model2);
+
+            if (!model1 || !model2) {
+                alert('שגיאה: לא נמצאו המודלים');
+                return;
+            }
+
+            // חישוב וקטורים
+            const vec1 = new THREE.Vector3().subVectors(alignState.points1[1], alignState.points1[0]);
+            const vec2 = new THREE.Vector3().subVectors(alignState.points2[1], alignState.points2[0]);
+
+            // חישוב סקייל
+            const scale = vec1.length() / vec2.length();
+            
+            // יישום סקייל
+            model2.group.scale.multiplyScalar(scale);
+
+            // חישוב זווית סיבוב
+            vec1.normalize();
+            vec2.normalize();
+            
+            const quaternion = new THREE.Quaternion();
+            quaternion.setFromUnitVectors(vec2, vec1);
+            
+            // יישום סיבוב
+            model2.group.applyQuaternion(quaternion);
+
+            // חישוב תזוזה
+            model2.group.updateMatrixWorld(true);
+            const newPos2Start = alignState.points2[0].clone().applyMatrix4(model2.group.matrixWorld);
+            const offset = new THREE.Vector3().subVectors(alignState.points1[0], newPos2Start);
+            
+            model2.group.position.add(offset);
+
+            // עדכון
+            calculateGlobalBoundingBox();
+            applyCuts();
+            cancelAlignment();
+            
+            alert('המודלים יושרו בהצלחה! ✓');
+        }
+
+        function cancelAlignment() {
+            alignState = {
+                active: false,
+                selectingModel: null,
+                model1: null,
+                model2: null,
+                points1: [],
+                points2: []
+            };
+
+            // הסרת סמנים
+            document.querySelectorAll('.point-marker').forEach(m => m.remove());
+            
+            document.getElementById('alignSection').style.display = 'none';
+            document.getElementById('executeAlignBtn').disabled = true;
+            
+            updateModelList();
+        }
     </script>
 </body>
 </html>
