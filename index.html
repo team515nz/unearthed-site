@@ -343,6 +343,16 @@
             font-size: 0.85em;
             color: #8B4513;
         }
+
+        .format-badge {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.7em;
+            margin-left: 5px;
+        }
     </style>
 </head>
 <body>
@@ -359,7 +369,10 @@
                     <div class="upload-box" id="uploadBox" onclick="document.getElementById('fileInput').click()">
                         <div class="upload-icon">📤</div>
                         <div>לחץ להעלאת קובץ 3D</div>
-                        <small style="color: #666;">OBJ, STL, GLB, GLTF</small>
+                        <small style="color: #666;">
+                            OBJ, STL, GLB, GLTF
+                            <span class="format-badge">NEW</span>
+                        </small>
                     </div>
                     <div id="loadingMessage" class="loading-message" style="display: none;"></div>
                     <input type="file" id="fileInput" class="file-input" accept=".obj,.stl,.glb,.gltf" multiple>
@@ -434,7 +447,8 @@
                             <div style="font-size: 3.5em; margin-bottom: 15px;">🏛️</div>
                             <div>העלה מודלים תלת-ממדיים כדי להתחיל</div>
                             <div style="font-size: 0.75em; margin-top: 8px; color: #999;">
-                                תוכל להעלות מספר מודלים ולראות את השכבות אחת על השנייה
+                                תוכל להעלות מספר מודלים ולראות את השכבות אחת על השנייה<br>
+                                <strong>תמיכה מלאה ב: OBJ, STL, GLB, GLTF</strong>
                             </div>
                         </div>
                     </div>
@@ -560,7 +574,7 @@
                     try {
                         const geometry = parseOBJ(text);
                         if (geometry && geometry.attributes.position.count > 0) {
-                            resolve(geometry);
+                            resolve([geometry]);
                         } else {
                             reject(new Error('הקובץ ריק או לא תקין'));
                         }
@@ -645,7 +659,7 @@
                     try {
                         const geometry = parseSTL(e.target.result);
                         if (geometry) {
-                            resolve(geometry);
+                            resolve([geometry]);
                         } else {
                             reject(new Error('Failed to parse STL'));
                         }
@@ -740,6 +754,214 @@
             return geometry;
         }
 
+        // ===== תמיכה ב-GLB ו-GLTF =====
+        
+        function loadGLTFFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const extension = file.name.split('.').pop().toLowerCase();
+                        let gltfData;
+                        
+                        if (extension === 'gltf') {
+                            // GLTF is JSON format
+                            const text = new TextDecoder().decode(e.target.result);
+                            gltfData = JSON.parse(text);
+                        } else if (extension === 'glb') {
+                            // GLB is binary format
+                            gltfData = parseGLB(e.target.result);
+                        }
+                        
+                        const geometries = parseGLTF(gltfData);
+                        if (geometries && geometries.length > 0) {
+                            resolve(geometries);
+                        } else {
+                            reject(new Error('לא נמצאו geometries בקובץ GLTF/GLB'));
+                        }
+                    } catch (err) {
+                        reject(new Error('שגיאה בניתוח GLTF/GLB: ' + err.message));
+                    }
+                };
+                reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function parseGLB(arrayBuffer) {
+            const view = new DataView(arrayBuffer);
+            
+            // Check GLB magic number
+            const magic = view.getUint32(0, true);
+            if (magic !== 0x46546C67) { // 'glTF' in ASCII
+                throw new Error('זה לא קובץ GLB תקין');
+            }
+            
+            const version = view.getUint32(4, true);
+            const length = view.getUint32(8, true);
+            
+            // Read JSON chunk
+            const jsonChunkLength = view.getUint32(12, true);
+            const jsonChunkType = view.getUint32(16, true);
+            
+            if (jsonChunkType !== 0x4E4F534A) { // 'JSON' in ASCII
+                throw new Error('פורמט GLB לא תקין');
+            }
+            
+            const jsonData = new Uint8Array(arrayBuffer, 20, jsonChunkLength);
+            const jsonText = new TextDecoder().decode(jsonData);
+            const gltf = JSON.parse(jsonText);
+            
+            // Read binary chunk if exists
+            if (20 + jsonChunkLength + 8 <= length) {
+                const binaryChunkLength = view.getUint32(20 + jsonChunkLength, true);
+                const binaryChunkType = view.getUint32(20 + jsonChunkLength + 4, true);
+                
+                if (binaryChunkType === 0x004E4942) { // 'BIN\0' in ASCII
+                    const binaryData = arrayBuffer.slice(20 + jsonChunkLength + 8, 20 + jsonChunkLength + 8 + binaryChunkLength);
+                    gltf.binaryData = binaryData;
+                }
+            }
+            
+            return gltf;
+        }
+
+        function parseGLTF(gltf) {
+            const geometries = [];
+            
+            if (!gltf.meshes || gltf.meshes.length === 0) {
+                throw new Error('לא נמצאו meshes בקובץ GLTF');
+            }
+            
+            // Parse each mesh
+            gltf.meshes.forEach(mesh => {
+                mesh.primitives.forEach(primitive => {
+                    try {
+                        const geometry = parsePrimitive(primitive, gltf);
+                        if (geometry) {
+                            geometries.push(geometry);
+                        }
+                    } catch (err) {
+                        console.warn('שגיאה בניתוח primitive:', err);
+                    }
+                });
+            });
+            
+            return geometries;
+        }
+
+        function parsePrimitive(primitive, gltf) {
+            const geometry = new THREE.BufferGeometry();
+            
+            // Get position attribute
+            if (primitive.attributes.POSITION !== undefined) {
+                const positionAccessor = gltf.accessors[primitive.attributes.POSITION];
+                const positions = getAccessorData(positionAccessor, gltf);
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            } else {
+                throw new Error('לא נמצא POSITION attribute');
+            }
+            
+            // Get normal attribute if exists
+            if (primitive.attributes.NORMAL !== undefined) {
+                const normalAccessor = gltf.accessors[primitive.attributes.NORMAL];
+                const normals = getAccessorData(normalAccessor, gltf);
+                geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+            }
+            
+            // Get indices if exists
+            if (primitive.indices !== undefined) {
+                const indexAccessor = gltf.accessors[primitive.indices];
+                const indices = getAccessorData(indexAccessor, gltf);
+                geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+            }
+            
+            // Compute normals if not provided
+            if (primitive.attributes.NORMAL === undefined) {
+                geometry.computeVertexNormals();
+            }
+            
+            return geometry;
+        }
+
+        function getAccessorData(accessor, gltf) {
+            const bufferView = gltf.bufferViews[accessor.bufferView];
+            const buffer = gltf.buffers[bufferView.buffer];
+            
+            let arrayBuffer;
+            if (gltf.binaryData) {
+                // GLB format - binary data is embedded
+                arrayBuffer = gltf.binaryData;
+            } else {
+                throw new Error('רק GLB נתמך כרגע (GLTF עם קבצים חיצוניים אינו נתמך)');
+            }
+            
+            const byteOffset = (bufferView.byteOffset || 0) + (accessor.byteOffset || 0);
+            const componentType = accessor.componentType;
+            const count = accessor.count;
+            const type = accessor.type;
+            
+            // Determine array type based on component type
+            let TypedArray;
+            let componentSize;
+            switch (componentType) {
+                case 5120: TypedArray = Int8Array; componentSize = 1; break;      // BYTE
+                case 5121: TypedArray = Uint8Array; componentSize = 1; break;     // UNSIGNED_BYTE
+                case 5122: TypedArray = Int16Array; componentSize = 2; break;     // SHORT
+                case 5123: TypedArray = Uint16Array; componentSize = 2; break;    // UNSIGNED_SHORT
+                case 5125: TypedArray = Uint32Array; componentSize = 4; break;    // UNSIGNED_INT
+                case 5126: TypedArray = Float32Array; componentSize = 4; break;   // FLOAT
+                default: throw new Error('Component type לא נתמך: ' + componentType);
+            }
+            
+            // Determine number of components per element
+            let numComponents;
+            switch (type) {
+                case 'SCALAR': numComponents = 1; break;
+                case 'VEC2': numComponents = 2; break;
+                case 'VEC3': numComponents = 3; break;
+                case 'VEC4': numComponents = 4; break;
+                case 'MAT2': numComponents = 4; break;
+                case 'MAT3': numComponents = 9; break;
+                case 'MAT4': numComponents = 16; break;
+                default: throw new Error('Type לא נתמך: ' + type);
+            }
+            
+            const elementSize = numComponents * componentSize;
+            const stride = bufferView.byteStride || elementSize;
+            
+            const data = new TypedArray(count * numComponents);
+            
+            if (stride === elementSize) {
+                // No interleaving - direct copy
+                const sourceView = new TypedArray(arrayBuffer, byteOffset, count * numComponents);
+                data.set(sourceView);
+            } else {
+                // Interleaved data - need to extract
+                const sourceView = new DataView(arrayBuffer, byteOffset);
+                for (let i = 0; i < count; i++) {
+                    for (let j = 0; j < numComponents; j++) {
+                        const offset = i * stride + j * componentSize;
+                        if (TypedArray === Float32Array) {
+                            data[i * numComponents + j] = sourceView.getFloat32(offset, true);
+                        } else if (TypedArray === Uint16Array) {
+                            data[i * numComponents + j] = sourceView.getUint16(offset, true);
+                        } else if (TypedArray === Uint32Array) {
+                            data[i * numComponents + j] = sourceView.getUint32(offset, true);
+                        } else if (TypedArray === Int16Array) {
+                            data[i * numComponents + j] = sourceView.getInt16(offset, true);
+                        } else if (TypedArray === Uint8Array) {
+                            data[i * numComponents + j] = sourceView.getUint8(offset);
+                        } else if (TypedArray === Int8Array) {
+                            data[i * numComponents + j] = sourceView.getInt8(offset);
+                        }
+                    }
+                }
+            }
+            
+            return data;
+        }
+
         function calculateGlobalBoundingBox() {
             globalBoundingBox = new THREE.Box3();
             
@@ -753,59 +975,75 @@
 
         async function addModelFromFile(file, color) {
             try {
-                let geometry;
+                let geometries;
                 const extension = file.name.split('.').pop().toLowerCase();
                 
                 if (extension === 'obj') {
-                    geometry = await loadOBJFile(file);
+                    geometries = await loadOBJFile(file);
                 } else if (extension === 'stl') {
-                    geometry = await loadSTLFile(file);
+                    geometries = await loadSTLFile(file);
+                } else if (extension === 'glb' || extension === 'gltf') {
+                    geometries = await loadGLTFFile(file);
                 } else {
-                    throw new Error('פורמט קובץ לא נתמך. השתמש ב-OBJ או STL');
+                    throw new Error('פורמט קובץ לא נתמך. השתמש ב-OBJ, STL, GLB או GLTF');
                 }
 
-                if (!geometry || !geometry.attributes.position) {
+                if (!geometries || geometries.length === 0) {
                     throw new Error('לא הצלחתי לטעון את הגיאומטריה');
                 }
 
-                geometry.center();
-                geometry.computeBoundingBox();
-                const box = geometry.boundingBox;
+                // Create a group for all geometries from this file
+                const mainGroup = new THREE.Group();
+
+                // Process each geometry
+                geometries.forEach((geometry, index) => {
+                    if (!geometry || !geometry.attributes.position) {
+                        console.warn('דילגתי על geometry לא תקין');
+                        return;
+                    }
+
+                    geometry.center();
+                    geometry.computeBoundingBox();
+                    
+                    const material = new THREE.MeshStandardMaterial({ 
+                        color: color,
+                        transparent: true,
+                        opacity: 0.85,
+                        side: THREE.DoubleSide,
+                        flatShading: false
+                    });
+                    
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mainGroup.add(mesh);
+                });
+
+                if (mainGroup.children.length === 0) {
+                    throw new Error('לא נמצאו meshes תקינים');
+                }
+
+                // Scale the entire group
+                const box = new THREE.Box3().setFromObject(mainGroup);
                 const size = new THREE.Vector3();
                 box.getSize(size);
-                
                 const maxDim = Math.max(size.x, size.y, size.z);
                 
                 if (maxDim > 0) {
                     const targetSize = 4;
                     const scale = targetSize / maxDim;
-                    geometry.scale(scale, scale, scale);
-                    geometry.computeBoundingBox();
+                    mainGroup.scale.set(scale, scale, scale);
                 }
 
-                const material = new THREE.MeshStandardMaterial({ 
-                    color: color,
-                    transparent: true,
-                    opacity: 0.85,
-                    side: THREE.DoubleSide,
-                    flatShading: false
-                });
-                
-                const mesh = new THREE.Mesh(geometry, material);
-                mesh.position.y = 0;
-                
-                const group = new THREE.Group();
-                group.add(mesh);
-                scene.add(group);
+                mainGroup.position.y = 0;
+                scene.add(mainGroup);
 
                 const modelData = {
                     id: modelCounter++,
                     name: file.name,
                     date: new Date().toLocaleString('he-IL'),
-                    group: group,
-                    mesh: mesh,
+                    group: mainGroup,
+                    meshes: mainGroup.children,
                     visible: true,
-                    originalGeometry: geometry.clone(),
+                    originalGeometries: mainGroup.children.map(mesh => mesh.geometry.clone()),
                     color: color
                 };
 
@@ -842,11 +1080,15 @@
             listContainer.innerHTML = '';
 
             models.forEach(model => {
+                const extension = model.name.split('.').pop().toUpperCase();
                 const item = document.createElement('div');
                 item.className = 'model-item';
                 item.innerHTML = `
                     <div>
-                        <div class="model-name">${model.name}</div>
+                        <div class="model-name">
+                            ${model.name}
+                            ${extension === 'GLB' || extension === 'GLTF' ? '<span class="format-badge">NEW</span>' : ''}
+                        </div>
                         <div class="model-date">${model.date}</div>
                         <div class="model-controls">
                             <span class="visibility-toggle ${model.visible ? 'visible' : ''}" onclick="toggleVisibility(${model.id})">
@@ -934,77 +1176,84 @@
             models.forEach(model => {
                 if (!model.visible) return;
 
-                const originalGeo = model.originalGeometry;
-                const positions = originalGeo.attributes.position.array;
-                
                 const worldMatrix = model.group.matrixWorld;
                 
-                const newPositions = [];
-                const newIndices = [];
-                
-                if (originalGeo.index) {
-                    const indices = originalGeo.index.array;
-                    for (let i = 0; i < indices.length; i += 3) {
-                        const i0 = indices[i] * 3;
-                        const i1 = indices[i + 1] * 3;
-                        const i2 = indices[i + 2] * 3;
-                        
-                        const v0 = new THREE.Vector3(positions[i0], positions[i0 + 1], positions[i0 + 2]);
-                        const v1 = new THREE.Vector3(positions[i1], positions[i1 + 1], positions[i1 + 2]);
-                        const v2 = new THREE.Vector3(positions[i2], positions[i2 + 1], positions[i2 + 2]);
-                        
-                        v0.applyMatrix4(worldMatrix);
-                        v1.applyMatrix4(worldMatrix);
-                        v2.applyMatrix4(worldMatrix);
-                        
-                        if (v0.y <= cutYWorld && v1.y <= cutYWorld && v2.y <= cutYWorld &&
-                            v0.x >= cutXWorld && v1.x >= cutXWorld && v2.x >= cutXWorld &&
-                            v0.z >= cutZWorld && v1.z >= cutZWorld && v2.z >= cutZWorld) {
+                // Handle both single mesh (OBJ/STL) and multiple meshes (GLB/GLTF)
+                const meshes = model.meshes || (model.mesh ? [model.mesh] : []);
+                const originalGeos = model.originalGeometries || (model.originalGeometry ? [model.originalGeometry] : []);
+
+                meshes.forEach((mesh, meshIndex) => {
+                    const originalGeo = originalGeos[meshIndex];
+                    if (!originalGeo) return;
+
+                    const positions = originalGeo.attributes.position.array;
+                    const newPositions = [];
+                    const newIndices = [];
+                    
+                    if (originalGeo.index) {
+                        const indices = originalGeo.index.array;
+                        for (let i = 0; i < indices.length; i += 3) {
+                            const i0 = indices[i] * 3;
+                            const i1 = indices[i + 1] * 3;
+                            const i2 = indices[i + 2] * 3;
                             
-                            const baseIdx = newPositions.length / 3;
-                            newPositions.push(
-                                positions[i0], positions[i0 + 1], positions[i0 + 2],
-                                positions[i1], positions[i1 + 1], positions[i1 + 2],
-                                positions[i2], positions[i2 + 1], positions[i2 + 2]
-                            );
-                            newIndices.push(baseIdx, baseIdx + 1, baseIdx + 2);
+                            const v0 = new THREE.Vector3(positions[i0], positions[i0 + 1], positions[i0 + 2]);
+                            const v1 = new THREE.Vector3(positions[i1], positions[i1 + 1], positions[i1 + 2]);
+                            const v2 = new THREE.Vector3(positions[i2], positions[i2 + 1], positions[i2 + 2]);
+                            
+                            v0.applyMatrix4(worldMatrix);
+                            v1.applyMatrix4(worldMatrix);
+                            v2.applyMatrix4(worldMatrix);
+                            
+                            if (v0.y <= cutYWorld && v1.y <= cutYWorld && v2.y <= cutYWorld &&
+                                v0.x >= cutXWorld && v1.x >= cutXWorld && v2.x >= cutXWorld &&
+                                v0.z >= cutZWorld && v1.z >= cutZWorld && v2.z >= cutZWorld) {
+                                
+                                const baseIdx = newPositions.length / 3;
+                                newPositions.push(
+                                    positions[i0], positions[i0 + 1], positions[i0 + 2],
+                                    positions[i1], positions[i1 + 1], positions[i1 + 2],
+                                    positions[i2], positions[i2 + 1], positions[i2 + 2]
+                                );
+                                newIndices.push(baseIdx, baseIdx + 1, baseIdx + 2);
+                            }
                         }
-                    }
-                } else {
-                    for (let i = 0; i < positions.length; i += 9) {
-                        const v0 = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
-                        const v1 = new THREE.Vector3(positions[i + 3], positions[i + 4], positions[i + 5]);
-                        const v2 = new THREE.Vector3(positions[i + 6], positions[i + 7], positions[i + 8]);
-                        
-                        v0.applyMatrix4(worldMatrix);
-                        v1.applyMatrix4(worldMatrix);
-                        v2.applyMatrix4(worldMatrix);
-                        
-                        if (v0.y <= cutYWorld && v1.y <= cutYWorld && v2.y <= cutYWorld &&
-                            v0.x >= cutXWorld && v1.x >= cutXWorld && v2.x >= cutXWorld &&
-                            v0.z >= cutZWorld && v1.z >= cutZWorld && v2.z >= cutZWorld) {
+                    } else {
+                        for (let i = 0; i < positions.length; i += 9) {
+                            const v0 = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
+                            const v1 = new THREE.Vector3(positions[i + 3], positions[i + 4], positions[i + 5]);
+                            const v2 = new THREE.Vector3(positions[i + 6], positions[i + 7], positions[i + 8]);
                             
-                            for (let j = 0; j < 9; j++) {
-                                newPositions.push(positions[i + j]);
+                            v0.applyMatrix4(worldMatrix);
+                            v1.applyMatrix4(worldMatrix);
+                            v2.applyMatrix4(worldMatrix);
+                            
+                            if (v0.y <= cutYWorld && v1.y <= cutYWorld && v2.y <= cutYWorld &&
+                                v0.x >= cutXWorld && v1.x >= cutXWorld && v2.x >= cutXWorld &&
+                                v0.z >= cutZWorld && v1.z >= cutZWorld && v2.z >= cutZWorld) {
+                                
+                                for (let j = 0; j < 9; j++) {
+                                    newPositions.push(positions[i + j]);
+                                }
                             }
                         }
                     }
-                }
-                
-                if (newPositions.length > 0) {
-                    const newGeometry = new THREE.BufferGeometry();
-                    newGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3));
-                    if (newIndices.length > 0) {
-                        newGeometry.setIndex(newIndices);
-                    }
-                    newGeometry.computeVertexNormals();
                     
-                    model.mesh.geometry.dispose();
-                    model.mesh.geometry = newGeometry;
-                    model.mesh.visible = true;
-                } else {
-                    model.mesh.visible = false;
-                }
+                    if (newPositions.length > 0) {
+                        const newGeometry = new THREE.BufferGeometry();
+                        newGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3));
+                        if (newIndices.length > 0) {
+                            newGeometry.setIndex(newIndices);
+                        }
+                        newGeometry.computeVertexNormals();
+                        
+                        mesh.geometry.dispose();
+                        mesh.geometry = newGeometry;
+                        mesh.visible = true;
+                    } else {
+                        mesh.visible = false;
+                    }
+                });
             });
         }
 
