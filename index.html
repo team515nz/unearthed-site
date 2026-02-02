@@ -80,6 +80,7 @@
             <div class="main-content">
                 <div class="controls">
                     <button class="fullscreen-btn" onclick="toggleFullscreen()">🖵 מסך מלא</button>
+                    <button class="help-btn" onclick="toggleHelp()">❓ עזרה</button>
                     
                     <div class="control-group">
                         <label>
@@ -147,6 +148,99 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="toggleHelp()">&times;</span>
+            <div class="modal-body">
+                <h2>🏺 מערכת ניתוח חפירות ארכיאולוגיות 3D</h2>
+                <p>מערכת אינטראקטיבית מבוססת דפדפן המיועדת להצגה, ניתוח וסנכרון של מודלים תלת-ממדיים משכבות חפירה.</p>
+                
+                <h3>🛠 מדריך הפעלה: על מה לוחצים?</h3>
+                
+                <div class="help-section">
+                    <h4>שלב 1: העלאת המודלים</h4>
+                    <ul>
+                        <li><strong>איפה לוחצים:</strong> בצד ימין, בתוך התיבה הלבנה עם האייקון 📤</li>
+                        <li><strong>מה קורה:</strong> ייפתח חלון לבחירת קבצים מהמחשב. ניתן לבחור מספר קבצים בבת אחת (OBJ, STL, GLB, GLTF)</li>
+                        <li><strong>טיפ:</strong> המערכת תציג הודעת טעינה עד שהמודל יופיע במרכז המסך</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h4>שלב 2: ניהול ושליטה בשכבות</h4>
+                    <p>לאחר הטעינה, המודלים יופיעו ברשימה ב-Sidebar הימני. לכל מודל יש 3 כפתורים:</p>
+                    <ul>
+                        <li><strong>כפתור העין:</strong> לוחצים כדי להסתיר/להציג את המודל (שימושי כשרוצים לראות מה יש "מתחת" לשכבה מסוימת)</li>
+                        <li><strong>כפתור הנעץ (📍):</strong> לוחצים כדי להתחיל תהליך יישור</li>
+                        <li><strong>כפתור הפח:</strong> לוחצים למחיקת המודל מהסצנה</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h4>שלב 3: יישור מודל (Alignment)</h4>
+                    <p>אם העלית שתי שכבות שאינן יושבות אחת על השנייה במדויק:</p>
+                    <ol>
+                        <li>לחץ על ה<strong>נעץ (📍)</strong> שליד המודל שברצונך להזיז</li>
+                        <li>המערכת תבקש ממך לסמן נקודות:
+                            <ul>
+                                <li><strong>קליק ראשון:</strong> על נקודה מסוימת במודל שאתה רוצה להזיז</li>
+                                <li><strong>קליק שני:</strong> על הנקודה המקבילה לה במודל ה"קבוע" (זה שכבר נמצא במקום)</li>
+                            </ul>
+                        </li>
+                        <li>לאחר סימון הנקודות, המערכת תחשב ותזיז את המודל למקומו החדש</li>
+                    </ol>
+                </div>
+
+                <div class="help-section">
+                    <h4>שלב 4: ניתוח חתכים (Clipping)</h4>
+                    <ul>
+                        <li><strong>איפה לוחצים:</strong> בסרגל העליון ישנם 3 סליידרים (X, Y, Z)</li>
+                        <li><strong>מה עושים:</strong> גוררים את העיגול על הציר ימינה ושמאלה</li>
+                        <li><strong>התוצאה:</strong> המודלים ייחתכו וייעלמו בהדרגה, מה שיאפשר לך לראות חתך רוחב (Section) של החפירה</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h4>שלב 5: ייצוא ושמירה</h4>
+                    <p>בתחתית התפריט הימני:</p>
+                    <ol>
+                        <li>בוחרים את הפורמט הרצוי (STL או GLTF) מהתפריט הנפתח</li>
+                        <li>לוחצים על הכפתור הכחול <strong>"הורד מודל משולב"</strong></li>
+                        <li><strong>התוצאה:</strong> המערכת תאחד את כל מה שמוצג על המסך לקובץ אחד ותוריד אותו למחשב</li>
+                    </ol>
+                </div>
+
+                <h3>✨ פיצ'רים מרכזיים</h3>
+                
+                <div class="help-section">
+                    <h4>🔍 ניתוח שכבות דינמי (Advanced Clipping)</h4>
+                    <p>היכולת לבצע "חפירה וירטואלית" באמצעות מישורי חיתוך בזמן אמת. חיוני לבחינת הקשרים סטרטיגרפיים ומבנים פנימיים.</p>
+                </div>
+
+                <div class="help-section">
+                    <h4>📍 אלגוריתם יישור נקודתי (Multi-Point Alignment)</h4>
+                    <p>סנכרון מרחבי מדויק בין סריקות שונות ללא צורך בתוכנות חיצוניות.</p>
+                </div>
+
+                <div class="help-section">
+                    <h4>🎥 תצוגת 3D אינטראקטיבית</h4>
+                    <ul>
+                        <li><strong>מנוע:</strong> Three.js</li>
+                        <li><strong>תנועה:</strong> גרירה לסיבוב, גלגלת לזום, כפתור ימני להזזה (Pan)</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h4>⛶ מצב מסך מלא</h4>
+                    <p>לחיצה על אייקון הריבוע בפינה העליונה תנקה את המסך ותציג רק את המודל עם בקרים צפים – אידיאלי להצגת ממצאים בכנסים או בשטח.</p>
+                </div>
+
+                <p class="help-footer"><strong>טכנולוגיות:</strong> Three.js, JavaScript ES6, CSS Grid/Flexbox, HTML5 File API</p>
             </div>
         </div>
     </div>
@@ -1078,6 +1172,23 @@
                 }
             }, 100);
         }
+
+        function toggleHelp() {
+            const modal = document.getElementById('helpModal');
+            if (modal.style.display === 'block') {
+                modal.style.display = 'none';
+            } else {
+                modal.style.display = 'block';
+            }
+        }
+
+        // Close modal when clicking outside of it
+        window.addEventListener('click', (event) => {
+            const modal = document.getElementById('helpModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
 
         window.addEventListener('resize', () => {
             if (renderer && camera) {
