@@ -2249,8 +2249,9 @@
       }
       langSelect.addEventListener('change', e => { const v = e.target.value; localStorage.setItem('siteLang', v); applyTranslations(v); });
       populateLangs();
-      const saved = localStorage.getItem('siteLang') || 'he';
-      langSelect.value = languages.includes(saved) ? saved : (languages.includes('he') ? 'he' : (languages.includes('en') ? 'en' : languages[0]));
+      const browserLang = (navigator.language || navigator.userLanguage || 'he').split('-')[0];
+      const saved = localStorage.getItem('siteLang') || browserLang;
+      langSelect.value = languages.includes(saved) ? saved : (languages.includes(browserLang) ? browserLang : (languages.includes('he') ? 'he' : (languages.includes('en') ? 'en' : languages[0])));
       applyTranslations(langSelect.value);
     })();
     </script>
