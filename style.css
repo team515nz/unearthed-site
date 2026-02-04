@@ -159,6 +159,15 @@ body.rtl .lang-switcher {
     gap: 8px;
 }
 
+.master-badge {
+    background: linear-gradient(90deg,#ffd700,#ffb300);
+    color: #333;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 0.75em;
+    margin-left: 8px;
+}
+
 .color-indicator {
     width: 20px;
     height: 20px;
@@ -212,6 +221,19 @@ body.rtl .lang-switcher {
 .delete-btn:hover {
     background: #d32f2f;
 }
+
+.fixed-pick-btn {
+    cursor: pointer;
+    padding: 4px 8px;
+    background: #2196F3;
+    color: white;
+    border-radius: 5px;
+    font-size: 0.8em;
+}
+.fixed-pick-btn:hover { background:#1976D2 }
+
+.fixed-align-btn { cursor:pointer; padding:4px 8px; background:#FFE082; border-radius:5px }
+
 
 .controls {
     padding: 15px;

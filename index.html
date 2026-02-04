@@ -76,6 +76,27 @@
                             <button class="align-execute-btn cancel-btn" data-i18n="cancelBtn" onclick="cancelAlignment()">
                                 ביטול
                             </button>
+
+                            <hr style="margin:10px 0;border-color:#ddd">
+
+                            <div class="fixed-align">
+                                <h4 data-i18n="fixedTitle">⚓ יישור קבוע (Fixed Stakes)</h4>
+                                <div id="fixedStatus">לא הוגדרו עוגנים</div>
+                                <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+                                    <button id="setMasterBtn" class="align-action-btn" onclick="startSetMaster()" data-i18n="fixedSetMaster">הגדר כ-Master</button>
+                                    <button id="clearMasterBtn" class="align-action-btn" onclick="clearMasterAnchors()" data-i18n="fixedClearMaster">נקה Master</button>
+                                    <label style="display:flex;align-items:center;gap:6px;margin-left:8px;">
+                                        <input type="checkbox" id="autoAlignToggle" style="transform:translateY(1px);"> <span data-i18n="autoAlignToggle">יישור אוטומטי להעלאות חדשות</span>
+                                    </label>
+                                </div>
+                                <div id="fixedModelControls" style="margin-top:8px; display:none;">
+                                    <div id="fixedModelStatus" data-i18n="fixedModelStatus">בחר מודל ליישור</div>
+                                    <button id="finishFixedModelBtn" class="align-action-btn" onclick="finishFixedModel()" data-i18n="finishModelBtn">סיים מודל</button>
+                                    <button id="undoFixedPointBtn" class="align-action-btn" onclick="undoFixedPoint()" data-i18n="undoPointBtn">↶ מחק נקודה</button>
+                                    <button id="executeFixedAlignBtn" class="align-execute-btn" onclick="executeFixedAlignment()" disabled data-i18n="fixedExecuteBtn">יישר ל-Master</button>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -143,11 +164,11 @@
                     <div id="canvas-container">
                         <div class="instruction">
                             <div class="instruction-icon">🏛️</div>
-                            <div>העלה מודלים תלת-ממדיים כדי להתחיל</div>
+                            <div data-i18n="canvasInstructionTitle">העלה מודלים תלת-ממדיים כדי להתחיל</div>
                             <div class="instruction-hint">
-                                תוכל להעלות מספר מודלים ולראות את השכבות אחת על השנייה<br>
-                                <strong>תמיכה מלאה ב: OBJ, STL, GLB, GLTF</strong><br>
-                                <strong>יישור גמיש: בחר כמה נקודות שתרצה!</strong>
+                                <span data-i18n="canvasInstructionDesc">תוכל להעלות מספר מודלים ולראות את השכבות אחת על השנייה</span><br>
+                                <strong data-i18n="canvasSupportedFormats">תמיכה מלאה ב: OBJ, STL, GLB, GLTF</strong><br>
+                                <strong data-i18n="canvasFlexibleAlign">יישור גמיש: בחר כמה נקודות שתרצה!</strong>
                             </div>
                         </div>
                     </div>
@@ -259,6 +280,8 @@
             raycaster = new THREE.Raycaster();
             
             setupMouseControls();
+            // render any stored master anchors now that scene exists
+            renderMasterAnchors();
             animate();
         }
 
@@ -276,25 +299,47 @@
             const container = document.getElementById('canvas-container');
             
             container.addEventListener('mousedown', (e) => {
-                if (alignState.active && alignState.selectingModel !== null) {
-                    const rect = container.getBoundingClientRect();
-                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-                    
-                    raycaster.setFromCamera(mouse, camera);
-                    const currentModel = models.find(m => m.id === alignState.selectingModel);
-                    
+                const rect = container.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                
+                raycaster.setFromCamera(mouse, camera);
+
+                // Fixed: picking Master anchors anywhere in scene
+                if (fixedAlignState.pickingMaster) {
+                    const intersects = raycaster.intersectObjects(scene.children, true);
+                    if (intersects.length > 0) {
+                        handleFixedPick(intersects[0].point.clone());
+                        return;
+                    }
+                }
+
+                // Fixed: picking points on a selected model
+                if (fixedAlignState.active && fixedAlignState.selectingModel !== null) {
+                    const currentModel = models.find(m => m.id === fixedAlignState.selectingModel);
                     if (currentModel) {
                         const meshes = currentModel.meshes || (currentModel.mesh ? [currentModel.mesh] : []);
                         const intersects = raycaster.intersectObjects(meshes, true);
-                        
+                        if (intersects.length > 0) {
+                            handleFixedPick(intersects[0].point.clone());
+                            return;
+                        }
+                    }
+                }
+
+                // Existing flexible alignment picking
+                if (alignState.active && alignState.selectingModel !== null) {
+                    const currentModel = models.find(m => m.id === alignState.selectingModel);
+                    if (currentModel) {
+                        const meshes = currentModel.meshes || (currentModel.mesh ? [currentModel.mesh] : []);
+                        const intersects = raycaster.intersectObjects(meshes, true);
                         if (intersects.length > 0) {
                             selectAlignmentPoint(e.clientX, e.clientY);
                             return;
                         }
                     }
                 }
-                
+
                 isDragging = true;
                 previousMousePosition = { x: e.clientX, y: e.clientY };
             });
@@ -806,6 +851,12 @@
                 models.push(modelData);
                 updateModelList();
                 calculateGlobalBoundingBox();
+
+                // If a master model/anchors exist and auto-align is enabled, auto-align the newly added model
+                if (window.autoAlignOnUpload && masterAnchors && masterAnchors.length >= 3) {
+                    // schedule slightly later so matrices are up-to-date
+                    setTimeout(() => autoAlignNewModel(modelData), 50);
+                }
                 
                 if (models.length === 1) {
                     adjustCameraToModel();
@@ -841,12 +892,14 @@
                 
                 const item = document.createElement('div');
                 item.className = 'model-item';
+                const isMaster = (masterModelId !== null && masterModelId === model.id);
+                const pickTitle = (window.TRANSLATIONS[getCurrentLang()] && window.TRANSLATIONS[getCurrentLang()].fixedPickPoints) || 'Pick points to align';
                 item.innerHTML = `
                     <div>
                         <div class="model-name">
                             <div class="color-indicator" style="background-color: ${colorInfo.hex}"></div>
                             <div class="flex-grow">
-                                ${model.name}
+                                ${model.name} ${isMaster ? '<span class="master-badge" data-i18n="masterBadge">⭐ Master</span>' : ''}
                                 <div class="color-name"><span data-i18n="colorLabel">צבע</span>: ${colorInfo.name}</div>
                             </div>
                         </div>
@@ -859,6 +912,8 @@
                             <span class="visibility-toggle" onclick="rotateModelZ(${model.id})">⭕Z</span>
                             <span class="visibility-toggle" onclick="flipModel(${model.id})">↕️X</span>
                             <span class="align-btn ${alignState.selectingModel === model.id ? 'active' : ''}" onclick="selectModelForAlignment(${model.id})">📍</span>
+                            <span class="fixed-pick-btn" title="${pickTitle}" onclick="selectModelForFixedAlignment(${model.id})">📌</span>
+                            <span class="fixed-align-btn" onclick="setMasterFromModel(${model.id})" title="Set model as Master">⚓</span>
                             <span class="delete-btn" onclick="deleteModel(${model.id})">🗑️</span>
                         </div>
                     </div>
@@ -1131,42 +1186,38 @@
         }
 
         async function loadReadme() {
-            try {
-                // Try to fetch README.md from the server
-                const response = await fetch('README.md');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const markdown = await response.text();
-                
-                // Convert markdown to HTML using marked.js
-                const html = marked.parse(markdown);
-                
-                // Wrap content with proper RTL styling
-                const wrappedHtml = `<div class="readme-content">${html}</div>`;
-                
-                document.getElementById('helpContent').innerHTML = wrappedHtml;
-            } catch (error) {
-                console.error('Error loading README:', error);
-                
-                // Fallback to embedded template if fetch fails
+            const lang = getCurrentLang() || 'en';
+            const candidates = [`README.${lang}.md`, 'README.md'];
+
+            for (let path of candidates) {
                 try {
-                    const markdown = document.getElementById('readmeTemplate').textContent;
+                    const response = await fetch(path);
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    const markdown = await response.text();
                     const html = marked.parse(markdown);
                     const wrappedHtml = `<div class="readme-content">${html}</div>`;
                     document.getElementById('helpContent').innerHTML = wrappedHtml;
-                    console.log('Loaded from embedded template');
-                } catch (fallbackError) {
-                    console.error('Fallback also failed:', fallbackError);
-                    document.getElementById('helpContent').innerHTML = `
-                        <div class="error-message">
-                            <h3>⚠️ שגיאה בטעינת מדריך העזרה</h3>
-                            <p>לא ניתן לטעון את התוכן. אנא רענן את הדף ונסה שוב.</p>
-                        </div>
-                    `;
+                    return;
+                } catch (err) {
+                    // try next
+                    console.warn('README load failed for', path, err.message);
                 }
+            }
+
+            // final fallback: embedded template
+            try {
+                const markdown = document.getElementById('readmeTemplate').textContent;
+                const html = marked.parse(markdown);
+                document.getElementById('helpContent').innerHTML = `<div class="readme-content">${html}</div>`;
+                console.log('Loaded from embedded template');
+            } catch (fallbackError) {
+                console.error('Fallback also failed:', fallbackError);
+                document.getElementById('helpContent').innerHTML = `
+                    <div class="error-message">
+                        <h3>⚠️ Error loading help content</h3>
+                        <p>Unable to load content. Please refresh and try again.</p>
+                    </div>
+                `;
             }
         }
 
@@ -1539,6 +1590,361 @@
             
             updateModelList();
         }
+
+        // ===== Fixed Stakes יישור קבוע =====
+
+        let masterAnchors = [];
+        let masterMarkers = [];
+        let masterModelId = null;
+        let fixedAlignState = {
+            pickingMaster: false,
+            active: false,
+            selectingModel: null,
+            targetModelId: null,
+            pickedPoints: [],
+            minPoints: 3
+        };
+
+        function startSetMaster() {
+            if (!scene) { alert('הפעל את התצוגה עם מודל קודם'); return; }
+            fixedAlignState.pickingMaster = !fixedAlignState.pickingMaster;
+            const lang = getCurrentLang();
+            if (fixedAlignState.pickingMaster) {
+                masterAnchors = [];
+                clearMasterMarkers();
+                updateFixedStatus(window.TRANSLATIONS[lang].fixedPickAnchorsInstruction);
+                document.getElementById('setMasterBtn').textContent = window.TRANSLATIONS[lang].fixedCancelSet || 'Cancel Set';
+            } else {
+                updateFixedStatus(window.TRANSLATIONS[lang].fixedCancelSet || 'Master set cancelled');
+                document.getElementById('setMasterBtn').textContent = window.TRANSLATIONS[lang].fixedSetMaster || 'Set as Master';
+            }
+        }
+
+        function getCurrentLang(){ const s = document.getElementById('langSelect'); return (s && s.value) ? s.value : 'he'; }
+        function updateFixedStatus(message) {
+            const el = document.getElementById('fixedStatus');
+            if (el) el.textContent = message;
+        }
+
+        function clearMasterMarkers() {
+            masterMarkers.forEach(m => { if (m.parent) m.parent.remove(m); });
+            masterMarkers = [];
+        }
+
+        function saveMasterAnchors() {
+            if (masterAnchors.length < 3) return;
+            const data = masterAnchors.map(v => ({ x: v.x, y: v.y, z: v.z }));
+            localStorage.setItem('Master Anchors', JSON.stringify(data));
+            updateFixedStatus('Master Anchors שמורים (' + masterAnchors.length + ')');
+            document.getElementById('setMasterBtn').textContent = 'הגדר כ-Master';
+            fixedAlignState.pickingMaster = false;
+        }
+
+        function loadMasterAnchors() {
+            try {
+                const raw = localStorage.getItem('Master Anchors');
+                if (!raw) return;
+                const arr = JSON.parse(raw);
+                masterAnchors = arr.map(a => new THREE.Vector3(a.x, a.y, a.z));
+                renderMasterAnchors();
+                updateFixedStatus('Master Anchors נטען (' + masterAnchors.length + ')');
+            } catch (e) { console.warn('Failed to load master anchors', e); }
+        }
+
+        function renderMasterAnchors() {
+            clearMasterMarkers();
+            if (!scene) return; // scene might not be initialized yet
+            masterAnchors.forEach((p, i) => {
+                const geom = new THREE.SphereGeometry(0.05, 8, 8);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x00FF88, emissive: 0x002200 });
+                const s = new THREE.Mesh(geom, mat);
+                s.position.copy(p);
+                scene.add(s);
+                masterMarkers.push(s);
+            });
+        }
+
+        // Set the given model as the Master Anchor model (automatically picks recommended anchors)
+        function setMasterFromModel(modelId) {
+            const model = models.find(m => m.id === modelId);
+            if (!model || !model.visible) { alert('המודל חייב להיות גלוי כדי להגדיר כמאסטר'); return; }
+
+            // compute recommended anchors using bounding box extremes
+            const bbox = new THREE.Box3().setFromObject(model.group);
+            const center = bbox.getCenter(new THREE.Vector3());
+            const min = bbox.min.clone();
+            const max = bbox.max.clone();
+
+            const a1 = new THREE.Vector3(min.x, center.y, center.z);
+            const a2 = new THREE.Vector3(max.x, center.y, center.z);
+            const a3 = new THREE.Vector3(center.x, center.y, max.z);
+
+            masterAnchors = [a1, a2, a3];
+            masterModelId = modelId;
+            localStorage.setItem('Master Model Id', String(masterModelId));
+
+            // save anchors
+            saveMasterAnchors();
+            renderMasterAnchors();
+            updateFixedStatus(window.TRANSLATIONS[getCurrentLang()].fixedRecommended + ' ' + model.name);
+            updateModelList();
+        }
+
+        // recommend best model as master (largest bounding box)
+        function recommendMasterModel() {
+            if (models.length === 0) return;
+            let best = null; let bestVol = -Infinity;
+            models.forEach(m => {
+                if (!m.visible) return;
+                const bbox = new THREE.Box3().setFromObject(m.group);
+                const size = bbox.getSize(new THREE.Vector3());
+                const vol = size.x * size.y * size.z;
+                if (vol > bestVol) { bestVol = vol; best = m; }
+            });
+            if (best) {
+                updateFixedStatus(window.TRANSLATIONS[getCurrentLang()].fixedRecommended + ' ' + best.name);
+                return best.id;
+            }
+            return null;
+        }
+
+        function autoAlignNewModel(modelData) {
+            if (!masterAnchors || masterAnchors.length < 3) return;
+            const model = modelData;
+            // gather vertex world positions from originalGeometries
+            const worldVertices = [];
+            model.group.updateMatrixWorld(true);
+            model.originalGeometries.forEach((geo, gi) => {
+                const posArr = geo.attributes.position.array;
+                for (let i = 0; i < posArr.length; i += 3) {
+                    const v = new THREE.Vector3(posArr[i], posArr[i + 1], posArr[i + 2]);
+                    v.applyMatrix4(model.group.matrixWorld);
+                    worldVertices.push(v);
+                }
+            });
+
+            // for each master anchor, find closest vertex
+            const picked = [];
+            const usedIdx = new Set();
+            for (let a = 0; a < Math.min(3, masterAnchors.length); a++) {
+                let bestIdx = -1; let bestDist = Infinity;
+                for (let i = 0; i < worldVertices.length; i++) {
+                    if (usedIdx.has(i)) continue;
+                    const d = worldVertices[i].distanceTo(masterAnchors[a]);
+                    if (d < bestDist) { bestDist = d; bestIdx = i; }
+                }
+                if (bestIdx !== -1) {
+                    usedIdx.add(bestIdx);
+                    picked.push(worldVertices[bestIdx].clone());
+                }
+            }
+
+            if (picked.length >= 3) {
+                updateFixedStatus(window.TRANSLATIONS[getCurrentLang()].fixedAutoAlignMsg + ' (' + model.name + ')');
+                alignModelToMaster(model.group, picked.slice(0,3), masterAnchors.slice(0,3));
+            }
+        }
+
+        function handleFixedPick(point) {
+            if (fixedAlignState.pickingMaster) {
+                masterAnchors.push(point.clone());
+                const geom = new THREE.SphereGeometry(0.06, 8, 8);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x00FF88, emissive: 0x002200 });
+                const s = new THREE.Mesh(geom, mat);
+                s.position.copy(point);
+                scene.add(s);
+                masterMarkers.push(s);
+                if (masterAnchors.length >= 3) saveMasterAnchors();
+                return;
+            }
+
+            if (fixedAlignState.active && fixedAlignState.selectingModel !== null) {
+                const model = models.find(m => m.id === fixedAlignState.selectingModel);
+                if (!model) return;
+                fixedAlignState.pickedPoints.push(point.clone());
+                add3DPointMarker(point.clone(), `F-${fixedAlignState.pickedPoints.length}`, model.id);
+                const n = fixedAlignState.pickedPoints.length;
+                document.getElementById('fixedModelStatus').textContent = `נקודות: ${n}`;
+                if (n >= fixedAlignState.minPoints) {
+                    document.getElementById('executeFixedAlignBtn').disabled = false;
+                }
+            }
+        }
+
+        function undoFixedPoint() {
+            if (fixedAlignState.active && fixedAlignState.pickedPoints.length > 0) {
+                fixedAlignState.pickedPoints.pop();
+                removeLastMarker('F-');
+                document.getElementById('executeFixedAlignBtn').disabled = true;
+            }
+        }
+
+        function finishFixedModel() {
+            if (!fixedAlignState.active) return;
+            if (fixedAlignState.pickedPoints.length < fixedAlignState.minPoints) {
+                alert('בחר לפחות ' + fixedAlignState.minPoints + ' נקודות');
+                return;
+            }
+            document.getElementById('fixedModelStatus').textContent = 'המודל מוכן ליישור';
+            document.getElementById('executeFixedAlignBtn').disabled = false;
+            fixedAlignState.selectingModel = null; // user finished picking
+        }
+
+        function executeFixedAlignment() {
+            if (!masterAnchors || masterAnchors.length < 3) { alert('אין Master Anchors מוגדרים'); return; }
+            const targetId = fixedAlignState.targetModelId;
+            const model = models.find(m => m.id === targetId);
+            if (!model) { alert('לא נמצא מודל'); return; }
+
+            if (fixedAlignState.pickedPoints.length < 3) { alert('בחר לפחות 3 נקודות על המודל'); return; }
+
+            // Use first 3 points
+            const sourcePoints = fixedAlignState.pickedPoints.slice(0, 3).map(p => p.clone());
+            const targetPoints = masterAnchors.slice(0, 3).map(p => p.clone());
+
+            alignModelToMaster(model.group, sourcePoints, targetPoints);
+
+            // cleanup
+            fixedAlignState = { pickingMaster: false, active: false, selectingModel: null, targetModelId: null, pickedPoints: [], minPoints: 3 };
+            document.getElementById('fixedModelControls').style.display = 'none';
+            document.getElementById('executeFixedAlignBtn').disabled = true;
+            updateModelList();
+        }
+
+        // Kabsch via Horn's method (quaternion from covariance)
+        function alignModelToMaster(modelGroup, pickedPoints, masterPoints, useScale = false) {
+            if (!modelGroup || pickedPoints.length < 3 || masterPoints.length < 3) {
+                console.warn('alignModelToMaster needs 3 points');
+                return;
+            }
+
+            // ensure points are in world coordinates
+            const src = pickedPoints.map(p => p.clone());
+            const tgt = masterPoints.map(p => p.clone());
+
+            const n = Math.min(src.length, tgt.length);
+            // centroids
+            const cs = new THREE.Vector3();
+            const ct = new THREE.Vector3();
+            for (let i = 0; i < n; i++) { cs.add(src[i]); ct.add(tgt[i]); }
+            cs.divideScalar(n); ct.divideScalar(n);
+
+            // centered
+            const S = []; const T = [];
+            for (let i = 0; i < n; i++) { S.push(src[i].clone().sub(cs)); T.push(tgt[i].clone().sub(ct)); }
+
+            // covariance H
+            const H = { xx:0, xy:0, xz:0, yx:0, yy:0, yz:0, zx:0, zy:0, zz:0 };
+            for (let i = 0; i < n; i++) {
+                const s = S[i]; const t = T[i];
+                H.xx += s.x * t.x; H.xy += s.x * t.y; H.xz += s.x * t.z;
+                H.yx += s.y * t.x; H.yy += s.y * t.y; H.yz += s.y * t.z;
+                H.zx += s.z * t.x; H.zy += s.z * t.y; H.zz += s.z * t.z;
+            }
+
+            // Build 4x4 symmetric matrix N (Horn)
+            const trace = H.xx + H.yy + H.zz;
+            const N = [
+                [trace, H.yz - H.zy, H.zx - H.xz, H.xy - H.yx],
+                [H.yz - H.zy, H.xx - H.yy - H.zz, H.xy + H.yx, H.zx + H.xz],
+                [H.zx - H.xz, H.xy + H.yx, -H.xx + H.yy - H.zz, H.yz + H.zy],
+                [H.xy - H.yx, H.zx + H.xz, H.yz + H.zy, -H.xx - H.yy + H.zz]
+            ];
+
+            // power iteration to get principal eigenvector
+            let q = [1,0,0,0];
+            for (let iter = 0; iter < 40; iter++) {
+                const nq = [0,0,0,0];
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) nq[r] += N[r][c] * q[c];
+                }
+                // normalize
+                const norm = Math.hypot(nq[0], nq[1], nq[2], nq[3]) || 1;
+                q = nq.map(v => v / norm);
+            }
+
+            const quat = new THREE.Quaternion(q[1], q[2], q[3], q[0]); // (x,y,z,w)
+            quat.normalize();
+
+            // optional uniform scale
+            let scale = 1;
+            if (useScale) {
+                let num = 0, den = 0;
+                for (let i = 0; i < n; i++) { num += T[i].lengthSq(); den += S[i].lengthSq(); }
+                if (den > 0) scale = Math.sqrt(num / den);
+            }
+
+            // build M: p' = scale * R * p + (ct - scale*R*cs)
+            const R = new THREE.Matrix4().makeRotationFromQuaternion(quat);
+            const M = new THREE.Matrix4();
+            M.copy(R);
+            M.elements[0] *= scale; M.elements[1] *= scale; M.elements[2] *= scale;
+            M.elements[4] *= scale; M.elements[5] *= scale; M.elements[6] *= scale;
+            M.elements[8] *= scale; M.elements[9] *= scale; M.elements[10] *= scale;
+
+            const transformed = cs.clone().applyMatrix4(R).multiplyScalar(scale);
+            const translation = ct.clone().sub(transformed);
+            M.setPosition(translation);
+
+            // compute new world matrix
+            modelGroup.updateMatrixWorld(true);
+            const G = modelGroup.matrixWorld.clone();
+            const Gnew = M.clone().multiply(G);
+
+            // convert to local relative to parent
+            const parentInv = modelGroup.parent ? modelGroup.parent.matrixWorld.clone().invert() : new THREE.Matrix4();
+            const Lnew = parentInv.multiply(Gnew);
+
+            // decompose and apply
+            const pos = new THREE.Vector3(); const quatNew = new THREE.Quaternion(); const sc = new THREE.Vector3();
+            Lnew.decompose(pos, quatNew, sc);
+
+            modelGroup.position.copy(pos);
+            modelGroup.quaternion.copy(quatNew);
+            modelGroup.scale.copy(sc);
+            modelGroup.updateMatrixWorld(true);
+
+            // compute average error
+            let totalError = 0;
+            for (let i = 0; i < n; i++) {
+                const p = src[i].clone().applyMatrix4(M);
+                totalError += p.distanceTo(tgt[i]);
+            }
+            const avgError = totalError / n;
+
+            calculateGlobalBoundingBox(); applyCuts();
+            alert('Model aligned to Master ✓\nAverage error: ' + avgError.toFixed(6));
+        }
+
+        function clearMasterAnchors() {
+            localStorage.removeItem('Master Anchors');
+            localStorage.removeItem('Master Model Id');
+            masterAnchors = [];
+            masterModelId = null;
+            clearMasterMarkers();
+            updateFixedStatus('Master Cleared');
+            updateModelList();
+        }
+
+        // Load master anchors and model id on startup
+        loadMasterAnchors();
+        try {
+            const mi = localStorage.getItem('Master Model Id');
+            if (mi) {
+                masterModelId = parseInt(mi, 10);
+                updateModelList();
+            }
+        } catch (e) { /* ignore */ }
+
+        // load auto align preference
+        try {
+            window.autoAlignOnUpload = localStorage.getItem('AutoAlignOnUpload') === '1';
+            const el = document.getElementById('autoAlignToggle'); if (el) el.checked = !!window.autoAlignOnUpload;
+            if (el) el.addEventListener('change', (e) => { window.autoAlignOnUpload = e.target.checked; localStorage.setItem('AutoAlignOnUpload', e.target.checked ? '1' : '0'); });
+        } catch (e) { window.autoAlignOnUpload = false; }
+
+        // recommend one when many models exist
+        setTimeout(recommendMasterModel, 500);
 
         // ===== פונקציות הורדה =====
 
@@ -2284,12 +2690,21 @@
           document.body.classList.remove('rtl');
         }
       }
-      langSelect.addEventListener('change', e => { const v = e.target.value; localStorage.setItem('siteLang', v); applyTranslations(v); });
+      langSelect.addEventListener('change', e => { const v = e.target.value; localStorage.setItem('siteLang', v); applyTranslations(v); updateModelList(); });
       populateLangs();
       const browserLang = (navigator.language || navigator.userLanguage || 'he').split('-')[0];
       const saved = localStorage.getItem('siteLang') || browserLang;
       langSelect.value = languages.includes(saved) ? saved : (languages.includes(browserLang) ? browserLang : (languages.includes('he') ? 'he' : (languages.includes('en') ? 'en' : languages[0])));
       applyTranslations(langSelect.value);
+
+      // set initial fixed status text and buttons
+      try {
+        const fixedEl = document.getElementById('fixedStatus');
+        const lang = langSelect.value;
+        if (fixedEl) fixedEl.textContent = window.TRANSLATIONS[lang].fixedModelStatus || window.TRANSLATIONS[lang].fixedTitle || 'No anchors';
+        const setBtn = document.getElementById('setMasterBtn');
+        if (setBtn) setBtn.textContent = window.TRANSLATIONS[lang].fixedSetMaster || 'Set as Master';
+      } catch (e) { }
 
       // Re-apply translations every 5 seconds to handle dynamic content that may be added later
       const i18nRefresher = setInterval(() => {

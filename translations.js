@@ -16,6 +16,25 @@ window.TRANSLATIONS = {
     undoPointBtn: "↶ Undo Last Point",
     executeAlignBtn: "Align Models",
     cancelBtn: "Cancel",
+    // instruction / canvas messages
+    canvasInstructionTitle: "Upload 3D models to begin",
+    canvasInstructionDesc: "You can upload multiple models and view stacked layers together",
+    canvasSupportedFormats: "Full support: OBJ, STL, GLB, GLTF",
+    canvasFlexibleAlign: "Flexible alignment: pick as many points as you like!",
+
+    // Fixed Stakes
+    fixedTitle: "⚓ Fixed Stakes Alignment",
+    fixedSetMaster: "Set as Master",
+    fixedClearMaster: "Clear Master",
+    fixedModelStatus: "Choose a model or pick 3 points",
+    fixedExecuteBtn: "Align to Master",
+    fixedRecommended: "Recommended master:",
+    fixedPickAnchorsInstruction: "Pick 3 points in the scene to set Master Anchors",
+    fixedCancelSet: "Cancel Set",
+    fixedAutoAlignMsg: "Automatically aligning new model to master",
+    masterBadge: "⭐ Master",
+    fixedPickPoints: "Pick points to align",
+    autoAlignToggle: "Auto-align new uploads",
     fullscreenBtn: "🖵 Fullscreen",
     helpBtn: "❓ Help",
     cutYValue: "Vertical cut: 0%",
@@ -44,6 +63,25 @@ window.TRANSLATIONS = {
     undoPointBtn: "↶ מחק נקודה אחרונה",
     executeAlignBtn: "יישר מודלים",
     cancelBtn: "ביטול",
+
+    // הודעות על הקנבס
+    canvasInstructionTitle: "העלה מודלים תלת-ממדיים כדי להתחיל",
+    canvasInstructionDesc: "תוכל להעלות מספר מודלים ולראות את השכבות אחת על השנייה",
+    canvasSupportedFormats: "תמיכה מלאה ב: OBJ, STL, GLB, GLTF",
+    canvasFlexibleAlign: "יישור גמיש: בחר כמה נקודות שתרצה!",
+
+    // Fixed Stakes
+    fixedTitle: "⚓ יישור קבוע (Fixed Stakes)",
+    fixedSetMaster: "הגדר כ-Master",
+    fixedClearMaster: "נקה Master",
+    fixedModelStatus: "בחר מודל או סמן 3 נקודות",
+    fixedExecuteBtn: "יישר ל-Master",
+    fixedRecommended: "מומלץ כמאסטר:",
+    fixedPickAnchorsInstruction: "בחר 3 נקודות בסצנה כדי להגדיר כ-Master Anchors",
+    fixedCancelSet: "בטל הגדרה",
+    fixedAutoAlignMsg: "יישור אוטומטי של מודל חדש לפי ה-Master",
+    masterBadge: "⭐ Master",
+
     fullscreenBtn: "🖵 מסך מלא",
     helpBtn: "❓ עזרה",
     cutYValue: "חיתוך אנכי: 0%",
@@ -81,6 +119,8 @@ window.TRANSLATIONS = {
     cutXLabel: "قطع من اليسار إلى اليمين",
     cutZLabel: "قطع من الخلف إلى الأمام",
     closeFullscreen: "✕ إغلاق ملء الشاشة",
+    fixedPickPoints: "اختر نقاط للمحاذاة",
+    autoAlignToggle: "محاذاة تلقائية للتحميلات الجديدة",
     colorLabel: "اللون"
   },
   fr: {
@@ -109,6 +149,8 @@ window.TRANSLATIONS = {
     cutXLabel: "Découpe de gauche à droite",
     cutZLabel: "Découpe de l'arrière vers l'avant",
     closeFullscreen: "✕ Fermer le plein écran",
+    fixedPickPoints: "Choisir des points pour aligner",
+    autoAlignToggle: "Aligner automatiquement les nouvelles importations",
     colorLabel: "Couleur"
   },
   es: {
@@ -137,6 +179,8 @@ window.TRANSLATIONS = {
     cutXLabel: "Corte de izquierda a derecha",
     cutZLabel: "Corte de atrás hacia adelante",
     closeFullscreen: "✕ Cerrar pantalla completa",
+    fixedPickPoints: "Seleccionar puntos para alinear",
+    autoAlignToggle: "Alinear automáticamente nuevas subidas",
     colorLabel: "Color"
   },
   de: {
@@ -165,6 +209,8 @@ window.TRANSLATIONS = {
     cutXLabel: "Schnitt von links nach rechts",
     cutZLabel: "Schnitt von hinten nach vorne",
     closeFullscreen: "✕ Vollbild schließen",
+    fixedPickPoints: "Punkte zum Ausrichten wählen",
+    autoAlignToggle: "Automatisch bei neuen Uploads ausrichten",
     colorLabel: "Farbe"
   },
   pt: {
@@ -193,6 +239,8 @@ window.TRANSLATIONS = {
     cutXLabel: "Corte da esquerda para a direita",
     cutZLabel: "Corte de trás para frente",
     closeFullscreen: "✕ Fechar tela cheia",
+    fixedPickPoints: "Escolher pontos para alinhar",
+    autoAlignToggle: "Alinhar automaticamente novos uploads",
     colorLabel: "Cor"
   },
   it: {
@@ -221,6 +269,8 @@ window.TRANSLATIONS = {
     cutXLabel: "Taglio da sinistra a destra",
     cutZLabel: "Taglio da dietro in avanti",
     closeFullscreen: "✕ Chiudi schermo intero",
+    fixedPickPoints: "Scegli punti per allineare",
+    autoAlignToggle: "Allinea automaticamente nuovi upload",
     colorLabel: "Colore"
   },
   ru: {
@@ -249,6 +299,8 @@ window.TRANSLATIONS = {
     cutXLabel: "Срез слева направо",
     cutZLabel: "Срез сзади вперёд",
     closeFullscreen: "✕ Закрыть полноэкранный режим",
+    fixedPickPoints: "Выберите точки для выравнивания",
+    autoAlignToggle: "Автовыравнивание новых загрузок",
     colorLabel: "Цвет"
   },
   zh: {
@@ -277,6 +329,8 @@ window.TRANSLATIONS = {
     cutXLabel: "从左到右切割",
     cutZLabel: "从后到前切割",
     closeFullscreen: "✕ 关闭全屏",
+    fixedPickPoints: "选择用于对齐的点",
+    autoAlignToggle: "自动对齐新上传",
     colorLabel: "颜色"
   },
   ja: {
@@ -305,6 +359,8 @@ window.TRANSLATIONS = {
     cutXLabel: "左から右へのカット",
     cutZLabel: "後ろから前へのカット",
     closeFullscreen: "✕ フルスクリーンを閉じる",
+    fixedPickPoints: "整列する点を選択",
+    autoAlignToggle: "新しいアップロードを自動整列",
     colorLabel: "色"
   },
   hi: {
@@ -333,6 +389,8 @@ window.TRANSLATIONS = {
     cutXLabel: "बाएं से दाएं कट",
     cutZLabel: "पीछे से आगे की ओर कट",
     closeFullscreen: "✕ फुल स्क्रीन बंद करें",
+    fixedPickPoints: "संकरेखण के लिए बिंदु चुनें",
+    autoAlignToggle: "नई अपलोड्स के लिए स्वचालित संरेखण",
     colorLabel: "रंग"
   }
 };
