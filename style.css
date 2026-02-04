@@ -42,6 +42,19 @@ body {
     opacity: 0.9;
 }
 
+.lang-switcher {
+    position: absolute;
+    top: 18px;
+    left: 20px;
+}
+
+#langSelect {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.9em;
+}
+
 .content {
     display: grid;
     grid-template-columns: 300px 1fr;
