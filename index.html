@@ -89,7 +89,7 @@
                     <div class="control-group">
                         <label>
                             <span class="value-display" id="cutYValue" data-i18n="cutYValue">חיתוך אנכי: 0%</span>
-                            חיתוך מלמעלה למטה
+                            <span data-i18n="cutYLabel">חיתוך מלמעלה למטה</span>
                         </label>
                         <input type="range" id="cutY" class="slider" min="0" max="100" value="0">
                     </div>
@@ -97,7 +97,7 @@
                     <div class="control-group">
                         <label>
                             <span class="value-display" id="cutXValue" data-i18n="cutXValue">חיתוך רוחב: 0%</span>
-                            חיתוך משמאל לימין
+                            <span data-i18n="cutXLabel">חיתוך משמאל לימין</span>
                         </label>
                         <input type="range" id="cutX" class="slider" min="0" max="100" value="0">
                     </div>
@@ -105,7 +105,7 @@
                     <div class="control-group">
                         <label>
                             <span class="value-display" id="cutZValue" data-i18n="cutZValue">חיתוך עומק: 0%</span>
-                            חיתוך מאחורה לקדימה
+                            <span data-i18n="cutZLabel">חיתוך מאחורה לקדימה</span>
                         </label>
                         <input type="range" id="cutZ" class="slider" min="0" max="100" value="0">
                     </div>
@@ -117,23 +117,23 @@
                     <div class="control-group">
                         <label>
                             <span class="value-display" id="cutYValueFS" data-i18n="cutYValue">חיתוך אנכי: 0%</span>
-                            חיתוך מלמעלה למטה
+                            <span data-i18n="cutYLabel">חיתוך מלמעלה למטה</span>
                         </label>
                         <input type="range" id="cutYFS" class="slider" min="0" max="100" value="0">
                     </div>
 
                     <div class="control-group">
                         <label>
-                            <span class="value-display" id="cutXValueFS">חיתוך רוחב: 0%</span>
-                            חיתוך משמאל לימין
+                            <span class="value-display" id="cutXValueFS" data-i18n="cutXValue">חיתוך רוחב: 0%</span>
+                            <span data-i18n="cutXLabel">חיתוך משמאל לימין</span>
                         </label>
                         <input type="range" id="cutXFS" class="slider" min="0" max="100" value="0">
                     </div>
 
                     <div class="control-group">
                         <label>
-                            <span class="value-display" id="cutZValueFS">חיתוך עומק: 0%</span>
-                            חיתוך מאחורה לקדימה
+                            <span class="value-display" id="cutZValueFS" data-i18n="cutZValue">חיתוך עומק: 0%</span>
+                            <span data-i18n="cutZLabel">חיתוך מאחורה לקדימה</span>
                         </label>
                         <input type="range" id="cutZFS" class="slider" min="0" max="100" value="0">
                     </div>
@@ -2205,10 +2205,6 @@
         
         // הגדרת האזנה לשינויים עתידיים
         observer.observe(document.body, { childList: true, subtree: true });
-        
-        // התאמת כיוון הדף לאנגלית
-        document.documentElement.dir = 'ltr';
-        document.body.style.textAlign = 'left';
     });
 </script>
     <script src="translations.js"></script>
@@ -2239,6 +2235,17 @@
             }
           }
         });
+        // Set document language and direction based on selection
+        document.documentElement.lang = lang;
+        if (lang === 'he' || lang === 'ar') {
+          document.documentElement.dir = 'rtl';
+          document.body.style.textAlign = 'right';
+          document.body.classList.add('rtl');
+        } else {
+          document.documentElement.dir = 'ltr';
+          document.body.style.textAlign = 'left';
+          document.body.classList.remove('rtl');
+        }
       }
       langSelect.addEventListener('change', e => { const v = e.target.value; localStorage.setItem('siteLang', v); applyTranslations(v); });
       populateLangs();
